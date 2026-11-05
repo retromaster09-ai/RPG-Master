@@ -1,5 +1,25 @@
 # RPG Master — versões de teste Android
 
+## 0.5.0
+
+- Ajustar imagem com configurações independentes para miniatura e página: formato, imagem inteira
+  ou preencher, zoom, posição e moldura. As imagens originais do aplicativo não são recortadas.
+- Formatos retângulo, arredondado, quadrado arredondado e círculo, com prévia.
+- Formatação de trechos: negrito, itálico, cores, destaque, títulos, listas e limpar formatação.
+- Formatação preservada na leitura e nas exportações PNG/PDF, com variantes de fonte incluídas offline.
+- Criar backup completo em ZIP com textos, histórico, fotos e personalizações.
+- Restaurar o ZIP mantém os registros atuais, ignora cópias idênticas e conserva versões diferentes.
+- Dados da versão anterior são lidos sem perder o conteúdo.
+
+APK otimizado (22,2 MB), Android 7+ ARM64, assinatura compatível com 0.4.
+Instale como atualização, sem desinstalar. Para Victoria: Ajustar imagem → Miniatura na lista →
+Arredondado ou Quadrado arredondado, com Preencher moldura ativado.
+
+29 testes passaram, incluindo backup entre diretórios, falhas de gravação, formatação por seleção,
+fontes de negrito/itálico no PDF, PNG e personalização das imagens. O picker e o compartilhamento
+de ZIP ainda precisam ser conferidos em aparelho real. Dados continuam locais; não há login ou sincronização.
+
+
 ## 0.4.0
 
 - Imagens antes do primeiro parágrafo, seleção múltipla, legendas e ordenação.
