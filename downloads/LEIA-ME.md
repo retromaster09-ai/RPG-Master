@@ -1,5 +1,20 @@
 # RPG Master — versões de teste Android
 
+## 0.6.0
+
+- Enciclopédia separada em Personagens, Lugares e Itens, com busca na categoria escolhida.
+- Missões com etapas, detalhes/resultados, ordenação, prioridade e progresso.
+- Filtros Todas, Abertas, Em andamento e Concluídas.
+- Concluir a última etapa oferece concluir a missão; reabrir preserva resultados e histórico.
+- Missões antigas mantidas sem criar etapas automaticamente.
+- Backups novos usam formato 2 e preservam as etapas. Backups antigos continuam aceitos;
+  restaure backups novos na versão 0.6 ou posterior.
+
+39 testes passaram, incluindo migração, etapas, filtros, busca por categoria, backups e exportações.
+Instale como atualização, sem desinstalar. Android 7+ ARM64.
+Em Missões, abra um registro → Editar → Adicionar etapa, ou toque em Nova missão.
+Dados continuam locais; não há login ou sincronização entre jogadores.
+
 ## 0.5.0
 
 - Ajustar imagem com configurações independentes para miniatura e página: formato, imagem inteira
