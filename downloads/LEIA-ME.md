@@ -1,5 +1,18 @@
 # RPG Master — versões de teste Android
 
+## 0.7.0
+
+- Temas gerais Baróvia, Bosque arcano e Horizonte, com cabeçalhos ilustrados, molduras,
+  tipografia, cores e ícones harmonizados.
+- Escolha pelo ícone de paleta no topo ou por Temas do aplicativo no menu.
+- Preferência salva por aparelho, separada das notas e do estilo de cada diário.
+- Componentes adaptáveis a celular e PC; instalador Windows ainda não disponível.
+- Conteúdo, fotos, missões e estilos individuais preservados.
+
+42 testes passaram, incluindo escolha persistente do tema, layout em celular e PC, backups e exportações.
+Instale como atualização, sem desinstalar. Android 7+ ARM64.
+Dados continuam locais, sem login ou sincronização entre jogadores.
+
 ## 0.6.0
 
 - Enciclopédia separada em Personagens, Lugares e Itens, com busca na categoria escolhida.
