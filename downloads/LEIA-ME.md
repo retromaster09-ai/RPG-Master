@@ -1,5 +1,24 @@
 # RPG Master — versões de teste Android
 
+## 0.4.0
+
+- Imagens antes do primeiro parágrafo, seleção múltipla, legendas e ordenação.
+- Enquadramento inteiro de fotos, retratos e miniaturas, sem recorte automático.
+- Pergaminho envelhecido com fonte cursiva Courgette; Baróvia com Crimson Text e moldura vinho;
+  novo Futurista com grade ciano e Share Tech Mono. Fontes livres incluídas offline.
+- Compartilhar a folha completa da sessão como PNG pelo botão ao lado do lápis.
+- Exportar todos os resumos em PDF pelo botão na lista de Sessões, em ordem de data, com imagens.
+- Folhas muito longas indicam o uso de PDF em vez de cortar o texto.
+
+APK otimizado (20,4 MB), Android 7+ ARM64, assinatura compatível com 0.3.
+Instale como atualização, sem desinstalar. As fotos existentes não precisam ser recolocadas.
+
+21 testes distintos passaram, incluindo migração, posições de imagens, captura longa e PDF
+paginado (33 páginas no teste, com última linha verificada). O compartilhador do sistema e o envio
+por WhatsApp precisam de conferência em aparelho real. O aplicativo não envia mensagens sozinho.
+As anotações continuam locais; login, sincronização e instalador Windows ainda pendentes.
+
+
 ## 0.3.0
 
 - Retratos escolhidos pelo usuário, miniaturas nas listas e páginas completas dos registros.
