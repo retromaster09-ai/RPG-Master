@@ -1,5 +1,19 @@
 # RPG Master — versões de teste Android
 
+## 0.9.0 — notas compartilhadas e transferência
+
+- Notas e imagens compartilhadas entre os membros da campanha, com gravação local antes do envio.
+- Sincronização automática nas listas em primeiro plano, a cada 8 segundos, e botão manual no rodapé. Volte à lista depois de ler ou editar uma nota para enviar alterações.
+- Prévia de transferência do caderno antigo e das notas locais da versão 0.8, mantendo o original. Cópias idênticas são ignoradas.
+- Edições simultâneas em notas diferentes são juntadas. Na mesma nota, duas versões são preservadas para revisão.
+- Imagens num bucket privado por campanha; sem links públicos. Atualizações sem mudanças retornam apenas a revisão para reduzir tráfego.
+- Fila local persistente e reenvio seguro, inclusive após perda da confirmação do servidor.
+
+**Antes de usar:** aplique o SQL adicional [compartilhar-notas.sql](configuracao/compartilhar-notas.sql) no mesmo projeto Supabase. Veja o [passo a passo](configuracao/COMPARTILHAR-NOTAS.md).
+Instale a atualização sem desinstalar a versão anterior. Android 7+ ARM64, mesma assinatura.
+63 testes passaram. As regras do banco foram testadas num PostgreSQL 17 descartável com auth/storage simulados; o serviço real entre celulares precisa ser conferido após aplicar o SQL.
+A área privada do mestre continua desativada: todas as notas desta atualização são compartilhadas com os membros da campanha. Logo, capas e instalador Windows ficam para etapas futuras.
+
 ## 0.8.0 — contas e campanhas (configuração necessária)
 
 - Login e cadastro reais com e-mail/senha no projeto Supabase, com sessão persistente.
