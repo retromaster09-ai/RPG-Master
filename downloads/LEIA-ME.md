@@ -1,5 +1,17 @@
 # RPG Master — versões de teste Android
 
+## 0.13.0 — Roteiro do Mestre
+
+- Caderno privado em tela e tabela separadas: Caixa de ideias, Cenas, Bastidores e seleção para Próxima sessão.
+- Texto livre, etiquetas, condições/testes, referências de música e estado da ideia.
+- Permissões no servidor reservadas ao criador da campanha, com testes contra leitura direta e por API por jogadores, outros mestres e visitantes.
+- Senha da conta exigida ao abrir e após segundo plano; proteção de captura Android por FLAG_SECURE.
+- Sem cópia local automática, sem mistura com buscas, PDFs e backups do caderno compartilhado. Nesta versão, texto e links com salvamento online; anexos privados ficam para depois.
+- Conflitos de versão não substituem notas silenciosamente; o editor mantém o rascunho em caso de falha.
+
+Aplique [roteiro-do-mestre.sql](configuracao/roteiro-do-mestre.sql) e instale o APK 0.13 como atualização, sem desinstalar. [Instruções, confidencialidade e teste com nota fictícia](configuracao/ROTEIRO-DO-MESTRE.md).
+90 testes passaram, análise estática sem problemas e regras validadas em PostgreSQL descartável. O funcionamento e o bloqueio de captura no aparelho devem ser conferidos após aplicar o SQL. Não há criptografia de ponta a ponta; o administrador Supabase mantém acesso técnico pelo painel.
+
 ## 0.12.0 — RPG Master Set, códigos e participantes
 
 - Novo nome nas telas e no aplicativo Android; mesma identificação interna para atualizar sem desinstalar.
