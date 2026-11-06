@@ -1,5 +1,10 @@
 # RPG Master — versões de teste Android
 
+## 0.11.1 — aventureiros e dragão
+
+Nova ilustração anime original no cabeçalho de Suas campanhas: guerreiro, maga, paladino e clériga enfrentando um dragão. Prévia: [campanhas](previas/campanhas-0.11.1.png).
+Instale RPG-Master-prototipo-0.11.1-android64.apk como atualização, sem desinstalar. Não exige SQL adicional; contas, notas e capas continuam preservadas.
+
 ## 0.11.0 — identidade RPG Master e capas de campanha
 
 - Novo emblema de livro e dado, ícone Android e entrada ilustrada com arte original de fantasia.
