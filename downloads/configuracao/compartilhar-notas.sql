@@ -51,7 +51,7 @@ begin
     end loop;
     if e->>'imagePath' is not null and (e->>'imagePath') !~ '^rpg-media:[0-9a-f]{64}$' then return false;end if;
     for item in select * from jsonb_array_elements(e->'pictures') loop
-      if jsonb_typeof(item)<>'object' or (item->>'path') is null or (item->>'path') !~ '^rpg-media:[0-9a-f]{64}$' or jsonb_typeof(item->'caption') is distinct from 'string' or jsonb_typeof(item->'afterParagraph') is distinct from 'number' or (item->>'afterParagraph') !~ '^\d+$' then return false;end if;
+      if jsonb_typeof(item)<>'object' or (item->>'path') is null or (item->>'path') !~ '^rpg-media:[0-9a-f]{64}$' or jsonb_typeof(item->'caption') is distinct from 'string' or jsonb_typeof(item->'afterParagraph') is distinct from 'number' or (item->>'afterParagraph') !~ '^(-1|[0-9]+)$' then return false;end if;
     end loop;
     for item in select * from jsonb_array_elements(e->'steps') loop
       if jsonb_typeof(item->'title') is distinct from 'string' or jsonb_typeof(item->'details') is distinct from 'string' or jsonb_typeof(item->'completed') is distinct from 'boolean' then return false;end if;

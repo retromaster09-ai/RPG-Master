@@ -1,5 +1,13 @@
 # RPG Master — versões de teste Android
 
+## Correção de sincronização — imagens antes do texto
+
+A validação do banco da versão 0.9 rejeitava `afterParagraph = -1`, posição usada pelo editor para **Antes do parágrafo 1**. A rejeição impedia o salvamento do caderno inteiro e mantinha a indicação de envio pendente.
+
+Aplique [corrigir-imagens-antes-do-texto.sql](configuracao/corrigir-imagens-antes-do-texto.sql) no SQL Editor do projeto, numa nova consulta, e clique em Run. Depois volte à lista da campanha e toque em sincronizar. O aplicativo 0.9 usa a nova regra automaticamente; a transferência original e a fila local são mantidas.
+
+A correção altera somente a função de validação. Não muda permissões nem regrava notas ou imagens. O SQL completo de instalação também foi atualizado. Regressão reproduzida antes do ajuste e aprovada após o ajuste, incluindo salvamento pela RPC com usuário autenticado, rejeição de posições menores que -1 e testes de isolamento/permissões.
+
 ## 0.9.0 — notas compartilhadas e transferência
 
 - Notas e imagens compartilhadas entre os membros da campanha, com gravação local antes do envio.

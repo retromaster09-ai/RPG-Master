@@ -22,3 +22,8 @@ A área privada do mestre continua como prévia e não deve receber segredos. Ne
 ## Verificação
 
 63 testes do aplicativo passaram. Há testes com dois clientes para alterações distintas, conflitos na mesma nota, falhas depois do commit, retomada offline, imagens entre diretórios, dados locais preservados, prévia/cancelamento e transferências repetidas. A migração foi aplicada e reaplicada num PostgreSQL 17 descartável com stubs de auth/storage. Os testes SQL verificam acesso por membros, bloqueio de anônimos e outras campanhas, revogação de membro, CAS, validação dos dados, versões e privacidade das imagens. O serviço de armazenamento real e o fluxo entre celulares precisam de teste após aplicar o SQL, pois o domínio do Supabase continua bloqueado pela política de rede do ambiente de desenvolvimento.
+
+
+## Envio pendente com imagem antes do primeiro parágrafo
+
+A validação inicial rejeitava a posição -1 usada pelo editor. Execute `corrigir-imagens-antes-do-texto.sql` numa nova consulta no SQL Editor e clique em Run. Depois toque em sincronizar na lista da campanha. Não refaça a transferência: o rascunho pendente já está salvo no aparelho. Esse ajuste modifica apenas a validação, preservando notas, imagens e regras de acesso.
