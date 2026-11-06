@@ -1,5 +1,17 @@
 # RPG Master — versões de teste Android
 
+## 0.10.0 — caderno vazio, demonstração e recuperação preparada
+
+- Instalações novas começam com o caderno pessoal vazio, sem carregar exemplos automaticamente.
+- Explorar demonstração abre exemplos temporários em memória, separados do caderno pessoal e das campanhas. Alterações da demonstração são descartadas ao sair.
+- Registros já salvos no aparelho são preservados, inclusive exemplos que foram editados. Não há remoção automática de notas.
+- Botão Esqueci minha senha com etapas de código por e-mail e nova senha. O envio fica **em preparação** até configurar o remetente, o modelo e a ativação no servidor.
+- A ativação posterior do e-mail é reconhecida pelo aplicativo sem reinstalar nos celulares. Consulte [o guia de recuperação](configuracao/RECUPERAR-SENHA.md) antes de executar qualquer SQL de ativação.
+- A sincronização e as campanhas existentes continuam com a mesma estrutura.
+
+Para os ajustes do caderno basta instalar como atualização, sem desinstalar. Android 7+ ARM64, mesma assinatura da versão 0.9.
+74 testes passaram, incluindo preservação de dados, demonstração isolada, código expirado, confirmação de senha e chamadas da biblioteca oficial com rede simulada. Os testes não enviaram e-mails reais; SMTP ainda precisa ser escolhido/configurado pelo responsável. As permissões da ativação foram testadas num PostgreSQL descartável.
+
 ## Correção de sincronização — imagens antes do texto
 
 A validação do banco da versão 0.9 rejeitava `afterParagraph = -1`, posição usada pelo editor para **Antes do parágrafo 1**. A rejeição impedia o salvamento do caderno inteiro e mantinha a indicação de envio pendente.
