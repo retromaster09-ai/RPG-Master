@@ -1,5 +1,17 @@
 # RPG Master — versões de teste Android
 
+## 0.12.0 — RPG Master Set, códigos e participantes
+
+- Novo nome nas telas e no aplicativo Android; mesma identificação interna para atualizar sem desinstalar.
+- Mestre escolhe um código compartilhado de entrada, pode substituir ou desativar.
+- Acesso e participantes mostra quantidade, e-mails e papéis da campanha somente para o criador.
+- Limite de tentativas por conta e códigos armazenados apenas como impressão digital.
+- Convites antigos continuam aceitos. Trocar código não remove participantes.
+
+86 testes passaram; análise estática sem problemas e regras de acesso validadas em PostgreSQL descartável. A entrada real por código deve ser conferida após aplicar o SQL.
+
+Aplique [codigos-e-participantes.sql](configuracao/codigos-e-participantes.sql) e instale o APK 0.12 como atualização. [Passo a passo e consulta de contas](configuracao/CODIGOS-E-PARTICIPANTES.md).
+
 ## 0.11.1 — aventureiros e dragão
 
 Nova ilustração anime original no cabeçalho de Suas campanhas: guerreiro, maga, paladino e clériga enfrentando um dragão. Prévia: [campanhas](previas/campanhas-0.11.1.png).
