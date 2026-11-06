@@ -1,5 +1,19 @@
 # RPG Master — versões de teste Android
 
+## 0.8.0 — contas e campanhas (configuração necessária)
+
+- Login e cadastro reais com e-mail/senha no projeto Supabase, com sessão persistente.
+- Lista de campanhas, criação como mestre e entrada como jogador por convites de uso único (7 dias).
+- Caderno anterior acessível sem login; não é movido nem enviado automaticamente.
+- Notas de campanhas novas são locais, separadas por conta e campanha. Ainda não há sincronização de notas ou área secreta do mestre ativa.
+- Configure primeiro o projeto conforme [estas instruções](configuracao/LEIA-ME.md), com o SQL testado e as opções de autenticação.
+
+Instale como atualização, sem desinstalar. Android 7+ ARM64, assinatura compatível com 0.7.
+48 testes passaram e as regras SQL foram testadas num PostgreSQL 17 descartável.
+O login remoto ainda depende da configuração do projeto e precisa de teste em aparelho real.
+O domínio do Supabase está bloqueado pela política de rede do ambiente de desenvolvimento;
+essa limitação não valida nem invalida a chave pública fornecida.
+
 ## 0.7.0
 
 - Temas gerais Baróvia, Bosque arcano e Horizonte, com cabeçalhos ilustrados, molduras,
