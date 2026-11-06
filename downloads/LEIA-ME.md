@@ -1,5 +1,19 @@
 # RPG Master — versões de teste Android
 
+## 0.11.0 — identidade RPG Master e capas de campanha
+
+- Novo emblema de livro e dado, ícone Android e entrada ilustrada com arte original de fantasia.
+- Cartões grandes para campanhas, com papel de mestre/jogador e imagem de capa compartilhada.
+- Criador escolhe a imagem, ajusta zoom/foco ou mostra a imagem inteira; prévia antes de salvar e opção de remover a capa.
+- Jogadores podem ver a capa, mas só o criador pode trocá-la. Arquivos permanecem privados aos membros da campanha.
+- Atualização de campanhas no topo e verificação de novidades na lista a cada 20 segundos em primeiro plano.
+- Demonstração, caderno local, contas e sincronização continuam preservados. A recuperação por e-mail permanece em preparação, sem depender do Gmail para esta atualização.
+
+Aplique somente [capas-das-campanhas.sql](configuracao/capas-das-campanhas.sql) no projeto para salvar capas. Veja [as instruções](configuracao/CAPAS-E-VISUAL.md). O novo visual funciona antes de aplicar o SQL.
+Instale como atualização, sem desinstalar. Android 7+ ARM64. Recurso de ícone Windows preparado; instalador Windows ainda pendente.
+84 testes passaram, incluindo enquadramento, cancelamento, falhas, upload repetido e layouts em celular/PC com fontes ampliadas. As regras foram testadas num PostgreSQL descartável. O envio real de capa deve ser conferido no aplicativo após aplicar o SQL.
+Prévias: [entrada](previas/entrada-0.11.png) e [campanhas](previas/campanhas-0.11.png).
+
 ## 0.10.0 — caderno vazio, demonstração e recuperação preparada
 
 - Instalações novas começam com o caderno pessoal vazio, sem carregar exemplos automaticamente.
