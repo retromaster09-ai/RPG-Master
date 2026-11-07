@@ -1,5 +1,13 @@
 # RPG Master Set — versões de teste Android
 
+## 0.16.2 — sincronização sem bloquear a edição
+
+A sincronização do caderno compartilhado deixa de desativar a tela inteira. É possível navegar, abrir o editor, salvar e reorganizar enquanto a rede trabalha. Os salvamentos locais são serializados separadamente das operações de rede; edições feitas durante um envio permanecem pendentes para a próxima passagem. Respostas recebidas com o editor aberto não substituem o texto em digitação. Edições divergentes continuam preservadas como versões para revisar, e o reset continua impedindo o reenvio da geração antiga.
+
+Instale o APK 0.16.2 como atualização, sem desinstalar. Usa o mesmo SQL da 0.16, sem consulta adicional. [Detalhes e limites](configuracao/SINCRONIZACAO-0.16.2.md).
+
+123 testes passaram e análise estática limpa. Inclui rede lenta, confirmação atrasada, falha de conexão, retomada do cache, erro em disco e reset durante envio. A validação usa cenários controlados; não representa teste na conexão particular de cada usuário.
+
 ## 0.16.1 — arrastar o próprio cartão
 
 Segure o cartão na lista normal, arraste e solte: a nova ordem é salva automaticamente, na mesma tela. Disponível no caderno e no roteiro privado, com rolagem durante o arrasto e preservação dos itens ocultos por busca/filtros. Nas sessões, o arrasto ativa a ordem manual.
