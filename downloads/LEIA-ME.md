@@ -1,4 +1,15 @@
-# RPG Master — versões de teste Android
+# RPG Master Set — versões de teste Android
+
+## 0.15.0 — ajustes de imagem, Word e limpeza protegida
+
+- Ajustes de tamanho, formato, alinhamento, giro, espelhamento, borda e sombra nas imagens da página e entre parágrafos.
+- Importação local de DOCX com revisão, sugestão de abas, conclusão, etapas, múltiplas datas e tratamento de duplicatas; sem copiar a diagramação ou imagens do Word nesta primeira versão.
+- Reset exclusivo do criador, com senha e confirmação, preservando o roteiro privado por padrão e impedindo o reenvio automático de rascunhos anteriores ao reset.
+- Remoção local de fundo por cor com prévia e transparência; não usa IA de segmentação nem envia imagens a serviços externos.
+
+Aplique [ativar-ferramentas-0.15.sql](configuracao/ativar-ferramentas-0.15.sql) e instale o APK 0.15 como atualização, sem desinstalar. O SQL apenas ativa recursos: **não executa reset**. [Passo a passo, proteção e limites](configuracao/FERRAMENTAS-0.15.md).
+
+107 testes passaram (105 na suíte completa e dois testes adicionais de processamento/layout); análise estática sem problemas. Regras e reset testados em PostgreSQL descartável, sem limpar campanhas reais. O Word fornecido foi verificado localmente e não acompanha o instalador.
 
 ## 0.14.0 — roteiro ilustrado e leitura em pergaminho
 
