@@ -1,5 +1,16 @@
 # RPG Master Set — versões de teste Android
 
+## 0.16.0 — organização e lixeira
+
+- Ordem manual por aba, com arrastar ou setas, e som/vibração opcionais.
+- Duplicação, lixeira e restauração; exclusão definitiva compartilhada exclusiva do criador.
+- Organização e lixeira separadas no roteiro privado, mantendo o bloqueio.
+- Detalhes do erro de sincronização e proteção contra reenvio de notas excluídas.
+
+Aplique [organizacao-e-lixeira-0.16.sql](configuracao/organizacao-e-lixeira-0.16.sql) após a configuração 0.15. Todos devem instalar o APK 0.16 como atualização, sem desinstalar. [Instruções e limites](configuracao/ORGANIZACAO-E-LIXEIRA-0.16.md).
+
+114 testes passaram; análise estática limpa e permissões verificadas em PostgreSQL descartável. Recuperação por e-mail ainda pendente.
+
 ## 0.15.0 — ajustes de imagem, Word e limpeza protegida
 
 - Ajustes de tamanho, formato, alinhamento, giro, espelhamento, borda e sombra nas imagens da página e entre parágrafos.
