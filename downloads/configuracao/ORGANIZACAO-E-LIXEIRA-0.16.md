@@ -7,7 +7,9 @@ Requer a configuração da versão 0.15 já aplicada.
 
 ## Organizar
 
-Use Organizar na barra superior. Segure o marcador do cartão e arraste, ou use as setas. Toque em Concluir para salvar. Cada aba tem sua ordem; na Enciclopédia, cada categoria também. Limpe a busca e selecione Todas nas missões antes de organizar. Nas sessões, alterne entre Por data e Ordem manual.
+Na versão **0.16.1**, segure o próprio cartão na lista normal, arraste para a posição desejada e solte. A ordem é salva automaticamente, sem mudar de tela e sem tocar em Concluir. Funciona nas abas do caderno e nas categorias da Enciclopédia, além de Ideias, Cenas, Bastidores e Próxima sessão do roteiro privado. Arrastar uma sessão ativa a ordem manual; Por data continua disponível. Em buscas e filtros, a ordem dos itens ocultos é preservada.
+
+O botão Organizar permanece como alternativa por setas. Na lixeira privada, restaure a nota antes de organizá-la. Para atualizar de 0.16 para 0.16.1 não é necessário executar outro SQL.
 
 O som discreto do sistema e a vibração podem ser desativados no organizador. A preferência fica neste aparelho e depende dos ajustes do sistema; não é uma trilha sonora personalizada.
 
@@ -27,4 +29,4 @@ Se aparecer Envio pendente, toque no botão de informações junto ao estado de 
 
 A configuração de recuperação por e-mail permanece pendente. Não é necessária para esta atualização. O instalador para PC também permanece como trabalho futuro.
 
-Validação: 114 testes Flutter passaram, análise estática sem problemas e regras de organização, privacidade, restauração e exclusão verificadas em PostgreSQL descartável. Nenhuma campanha real foi apagada nos testes.
+Validação: 116 testes Flutter passaram, análise estática sem problemas e regras de organização, privacidade, restauração e exclusão verificadas em PostgreSQL descartável. Nenhuma campanha real foi apagada nos testes.

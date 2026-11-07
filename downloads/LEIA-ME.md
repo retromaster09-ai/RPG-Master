@@ -1,5 +1,13 @@
 # RPG Master Set — versões de teste Android
 
+## 0.16.1 — arrastar o próprio cartão
+
+Segure o cartão na lista normal, arraste e solte: a nova ordem é salva automaticamente, na mesma tela. Disponível no caderno e no roteiro privado, com rolagem durante o arrasto e preservação dos itens ocultos por busca/filtros. Nas sessões, o arrasto ativa a ordem manual.
+
+Instale o APK 0.16.1 como atualização, sem desinstalar. Usa o mesmo SQL da 0.16: se já o aplicou, não precisa executar outro. O botão Organizar por setas permanece como alternativa.
+
+116 testes passaram, incluindo o gesto de pressão longa e arrasto sobre o próprio cartão e o bloqueio do roteiro privado durante o arrasto. Análise estática limpa. [Instruções](configuracao/ORGANIZACAO-E-LIXEIRA-0.16.md).
+
 ## 0.16.0 — organização e lixeira
 
 - Ordem manual por aba, com arrastar ou setas, e som/vibração opcionais.
