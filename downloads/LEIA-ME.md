@@ -1,5 +1,18 @@
 # RPG Master — versões de teste Android
 
+## 0.14.0 — roteiro ilustrado e leitura em pergaminho
+
+- Página de leitura separada da edição, com Pergaminho cursivo, Diário de Baróvia, Futurista e Leitura simples; tamanho de texto ajustável.
+- Imagem de capa/miniatura com enquadramento e até 12 imagens no texto, com legendas, posição e ordem.
+- Negrito, itálico, cores, destaques, títulos e listas em trechos selecionados.
+- Imagens autenticadas em armazenamento privado separado, restrito ao criador da campanha; fora dos backups e exportações compartilhados.
+- Senha e bloqueio em segundo plano continuam ativos, inclusive na ampliação de imagens. Sem acesso offline ao roteiro.
+- Removida a aba antiga “Mestre”, que era apenas uma demonstração. Os acessos “Roteiro do Mestre” no cartão e no menu interno abrem a mesma área protegida.
+
+Aplique [imagens-e-leitura-do-mestre.sql](configuracao/imagens-e-leitura-do-mestre.sql) depois da configuração do roteiro 0.13 e instale o APK 0.14 como atualização, sem desinstalar. [Passo a passo e limites](configuracao/IMAGENS-E-LEITURA-DO-MESTRE.md). [Prévia fictícia de leitura](previas/roteiro-0.14.png).
+
+96 testes passaram; análise estática sem avisos. As regras de privacidade das imagens foram verificadas em PostgreSQL descartável. O teste real do envio no seu projeto depende de aplicar o SQL desta versão.
+
 ## 0.13.0 — Roteiro do Mestre
 
 - Caderno privado em tela e tabela separadas: Caixa de ideias, Cenas, Bastidores e seleção para Próxima sessão.
