@@ -1,0 +1,70 @@
+tipo,objeto,nome,detalhe
+coluna,rpg_campaigns,cover_hash,text
+coluna,rpg_campaigns,cover_layout,jsonb
+coluna,rpg_campaigns,cover_revision,int8
+coluna,rpg_campaigns,created_at,timestamptz
+coluna,rpg_campaigns,created_by,uuid
+coluna,rpg_campaigns,id,uuid
+coluna,rpg_campaigns,name,text
+coluna,rpg_gm_notes,body,text
+coluna,rpg_gm_notes,campaign_id,uuid
+coluna,rpg_gm_notes,cue,text
+coluna,rpg_gm_notes,deleted_at,timestamptz
+coluna,rpg_gm_notes,id,uuid
+coluna,rpg_gm_notes,music,text
+coluna,rpg_gm_notes,next_session,bool
+coluna,rpg_gm_notes,orders,jsonb
+coluna,rpg_gm_notes,presentation,jsonb
+coluna,rpg_gm_notes,revision,int8
+coluna,rpg_gm_notes,section,text
+coluna,rpg_gm_notes,state,text
+coluna,rpg_gm_notes,tags,text
+coluna,rpg_gm_notes,title,text
+coluna,rpg_gm_notes,updated_at,timestamptz
+coluna,rpg_members,campaign_id,uuid
+coluna,rpg_members,role,text
+coluna,rpg_members,user_id,uuid
+coluna,rpg_notebook_versions,campaign_id,uuid
+coluna,rpg_notebook_versions,entries,jsonb
+coluna,rpg_notebook_versions,revision,int8
+coluna,rpg_notebook_versions,saved_at,timestamptz
+coluna,rpg_notebook_versions,saved_by,uuid
+coluna,rpg_notebooks,campaign_id,uuid
+coluna,rpg_notebooks,entries,jsonb
+coluna,rpg_notebooks,epoch,int8
+coluna,rpg_notebooks,organizer_enabled,bool
+coluna,rpg_notebooks,purged_ids,jsonb
+coluna,rpg_notebooks,revision,int8
+coluna,rpg_notebooks,updated_at,timestamptz
+coluna,rpg_notebooks,updated_by,uuid
+função,public,rpg_campaign_people,uuid
+função,public,rpg_create_campaign,text
+função,public,rpg_create_invite,uuid
+função,public,rpg_gm_delete,"uuid, uuid, bigint"
+função,public,rpg_gm_list,uuid
+função,public,rpg_gm_list_v2,uuid
+função,public,rpg_gm_organize,"uuid, uuid[], text, bigint, text"
+função,public,rpg_gm_save,"uuid, uuid, bigint, jsonb"
+função,public,rpg_gm_save_visual,"uuid, uuid, bigint, jsonb"
+função,public,rpg_gm_trash,"uuid, uuid, bigint, boolean"
+função,public,rpg_join_campaign,text
+função,public,rpg_join_campaign_code,text
+função,public,rpg_poll_notebook,"uuid, bigint"
+função,public,rpg_poll_notebook_v3,"uuid, bigint"
+função,public,rpg_read_notebook,uuid
+função,public,rpg_reset_campaign,"uuid, bigint, boolean"
+função,public,rpg_reset_preview,uuid
+função,public,rpg_save_notebook,"uuid, bigint, jsonb"
+função,public,rpg_save_notebook_v2,"uuid, bigint, bigint, jsonb"
+função,public,rpg_save_notebook_v3,"uuid, bigint, bigint, jsonb"
+função,public,rpg_set_campaign_code,"uuid, text"
+função,public,rpg_set_campaign_cover,"uuid, bigint, text, jsonb"
+política,public.rpg_campaigns,rpg_campaign_read,SELECT
+política,public.rpg_gm_notes,rpg_gm_owner_read,SELECT
+política,public.rpg_members,rpg_members_read,SELECT
+política,public.rpg_notebook_versions,rpg_versions_read,SELECT
+política,public.rpg_notebooks,rpg_notes_read,SELECT
+política,storage.objects,rpg_gm_image_add,INSERT
+política,storage.objects,rpg_gm_image_read,SELECT
+política,storage.objects,rpg_image_add,INSERT
+política,storage.objects,rpg_image_read,SELECT
