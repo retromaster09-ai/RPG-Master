@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'account_screens.dart';
+import 'accounts.dart';
 import 'campaigns.dart';
 import 'notebook_editor.dart';
 
@@ -116,15 +118,18 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _email = TextEditingController();
+  final _identifier = TextEditingController();
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  late final _accounts = AccountService(widget.client);
+  bool _legacy = false;
+  bool _recovering = false;
   bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
-    _email.dispose();
+    _identifier.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -136,13 +141,22 @@ class _SignInScreenState extends State<SignInScreen> {
       _error = null;
     });
     try {
-      await widget.client.auth.signInWithPassword(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-    } on Exception {
+      if (_legacy) {
+        await widget.client.auth.signInWithPassword(
+          email: _identifier.text.trim(),
+          password: _password.text,
+        );
+      } else {
+        await _accounts.signIn(_identifier.text.trim(), _password.text);
+      }
+    } on Exception catch (error) {
       if (mounted) {
-        setState(() => _error = 'Não foi possível entrar. Confira seus dados.');
+        setState(
+          () => _error = accountMessage(
+            error,
+            'Não foi possível entrar. Confira seus dados.',
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -151,6 +165,12 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_recovering) {
+      return PasswordRecoveryScreen(
+        accounts: _accounts,
+        onClose: () => setState(() => _recovering = false),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -171,17 +191,41 @@ class _SignInScreenState extends State<SignInScreen> {
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 24),
+                      if (_legacy)
+                        const Text(
+                          'Entre com a conta antiga e escolha seu nome de usuário em Minha conta.',
+                        ),
                       TextFormField(
-                        controller: _email,
-                        decoration: const InputDecoration(labelText: 'E-mail'),
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        validator: (text) => text == null || text.trim().isEmpty
-                            ? 'Informe o e-mail da sua conta.'
-                            : null,
+                        controller: _identifier,
+                        enabled: !_busy,
+                        autocorrect: false,
+                        decoration: InputDecoration(
+                          labelText: _legacy
+                              ? 'E-mail da conta antiga'
+                              : 'Nome de usuário',
+                        ),
+                        keyboardType: _legacy
+                            ? TextInputType.emailAddress
+                            : TextInputType.text,
+                        autofillHints: [
+                          _legacy
+                              ? AutofillHints.email
+                              : AutofillHints.username,
+                        ],
+                        validator: (text) {
+                          if (_legacy) {
+                            return text?.contains('@') == true
+                                ? null
+                                : 'Informe o e-mail da conta antiga.';
+                          }
+                          return isUsername(text)
+                              ? null
+                              : 'Informe o nome de usuário.';
+                        },
                       ),
                       TextFormField(
                         controller: _password,
+                        enabled: !_busy,
                         decoration: const InputDecoration(labelText: 'Senha'),
                         obscureText: true,
                         autofillHints: const [AutofillHints.password],
@@ -195,6 +239,27 @@ class _SignInScreenState extends State<SignInScreen> {
                       FilledButton(
                         onPressed: _busy ? null : _signIn,
                         child: Text(_busy ? 'Entrando…' : 'Entrar'),
+                      ),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() => _recovering = true),
+                        child: const Text('Esqueci minha senha'),
+                      ),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                _legacy = !_legacy;
+                                _identifier.clear();
+                                _password.clear();
+                                _error = null;
+                              }),
+                        child: Text(
+                          _legacy
+                              ? 'Usar nome de usuário'
+                              : 'Primeiro acesso com a conta antiga',
+                        ),
                       ),
                     ],
                   ),
@@ -222,6 +287,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
   late final _repository = CampaignRepository(widget.client);
   late Future<List<Campaign>> _campaigns = _repository.list();
   Campaign? _selected;
+  bool _accountOpen = false;
 
   Future<void> _signOut() async {
     try {
@@ -239,6 +305,12 @@ class _CampaignScreenState extends State<CampaignScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_accountOpen) {
+      return AccountSettingsScreen(
+        accounts: AccountService(widget.client),
+        onClose: () => setState(() => _accountOpen = false),
+      );
+    }
     final campaign = _selected;
     if (campaign != null) {
       return NotebookScreen(
@@ -254,6 +326,11 @@ class _CampaignScreenState extends State<CampaignScreen> {
       appBar: AppBar(
         title: const Text('Suas campanhas'),
         actions: [
+          IconButton(
+            onPressed: () => setState(() => _accountOpen = true),
+            icon: const Icon(Icons.manage_accounts_outlined),
+            tooltip: 'Minha conta',
+          ),
           IconButton(
             onPressed: () => setState(() => _campaigns = _repository.list()),
             icon: const Icon(Icons.refresh),

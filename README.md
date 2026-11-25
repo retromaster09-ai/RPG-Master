@@ -34,9 +34,11 @@ distribuição, configure sua assinatura e guarde a chave em local privado.
 
 ## Estado da reconstrução
 
-A primeira implementação usa o login legado para permitir entrada com
-as contas existentes. Ela lista campanhas e tenta ler o caderno, as
-crônicas e as notas do mestre. Em um Supabase separado, duas contas
+A tela de entrada usa nome de usuário e senha. Para vincular uma conta
+existente, use **Primeiro acesso com a conta antiga**, entre com o e-mail
+de sempre e escolha o nome na tela **Minha conta**. As campanhas e as
+permissões continuam associadas à conta original. O app lista campanhas
+e lê o caderno, as crônicas e as notas do mestre. Em um Supabase separado, duas contas
 fictícias confirmaram que a API bloqueia a leitura e os downloads
 privados para o jogador, enquanto o mestre mantém acesso ao roteiro.
 
@@ -49,8 +51,10 @@ O roteiro continua disponível para leitura pelo mestre. Para editar,
 o projeto Supabase precisa da migração em `supabase/migrations/`.
 Essa migração já foi aplicada no projeto de teste.
 
-O login com nome de usuário, a recuperação por código e os recursos
-de jogo continuam pendentes.
+A recuperação de senha pelo mestre e pelo código de reserva está ativa
+no Supabase de teste. Os passos de configuração, implantação e teste
+estão em [Recuperação de conta](supabase/CONTAS.md). Os recursos de jogo
+continuam pendentes.
 
 Em `supabase/` ficam as consultas de inventário, as assinaturas
 confirmadas e a inspeção do formato das entradas. A pasta `supabase/legado-0.16.2/` preserva

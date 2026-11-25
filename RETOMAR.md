@@ -80,16 +80,24 @@ feito no projeto Supabase separado. As credenciais ficam fora do Git.
 
 ### Login por usuário e recuperação de senha
 
-- A tela de entrada deve pedir **nome de usuário e senha**. Vincular o
-  nome de usuário ao UUID de quem já tem conta para conservar suas
-  permissões e campanhas.
-- Em **Esqueci minha senha**, o jogador informa seu nome de usuário.
-  Ao aprovar o pedido, apenas o mestre autorizado recebe um código
-  temporário de uso único. O mestre pode repassá-lo por WhatsApp ou
-  outro canal. O jogador usa o código no app para escolher uma nova
-  senha. A recuperação deve funcionar sem servidor de e-mail.
-- Limitar tentativas e definir como o próprio mestre recupera a conta
-  antes de substituir o fluxo de login anterior.
+A versão `0.17.0-dev.2` implementa o login por nome de usuário e
+a recuperação sem e-mail. O usuário vincula um nome único à sua
+conta existente, preservando o UUID. Em **Minha conta**, pode
+autorizar o mestre de uma campanha em que participa como jogador
+e pode gerar um código de reserva para si.
+
+O mestre autorizado aprova o pedido e repassa o código por um
+canal que escolher. O código vale 15 minutos, funciona uma vez e
+tem limite de tentativas. O código de reserva permite recuperar
+a conta do mestre pelo mesmo formulário. A alteração da senha
+revoga as sessões anteriores.
+
+A migração de contas e a função `rpg-account` foram aplicadas ao
+projeto de teste. Os testes de integração verificaram o vínculo da
+conta, a aprovação pelo mestre correto, a troca da senha, a revogação
+de sessão e o código de reserva. Testar o fluxo nos aparelhos antes
+de aplicar a migração e a função ao projeto principal. O procedimento
+está em [CONTAS.md](supabase/CONTAS.md).
 
 Depois ficam iniciativa e condições, contagem de fúria, concentração,
 fichas e VTT. No VTT, o jogador recebe somente as áreas autorizadas,
