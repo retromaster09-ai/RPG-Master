@@ -73,7 +73,7 @@ O [levantamento das funções do app anterior](PARIDADE.md) registra o que
 falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
 cadastro por usuário e senha, criação de mesa, entrada por código ou convite
 e consulta de participantes. A próxima etapa do uso diário do caderno
-inclui datas das crônicas, ordenação e lixeira.
+inclui organização manual e lixeira com restauração.
 
 O `0.17.0-dev.6` guarda localmente a lista de campanhas, a última revisão
 do caderno compartilhado e os rascunhos de texto. A chave é separada por
@@ -95,6 +95,15 @@ A migração `20261125220138_rpg_try_set_campaign_cover`, aplicada no projeto
 de teste, permite tratar conflitos de revisão na troca de capa. Também
 entraram busca por texto no caderno e nas crônicas e filtro por categoria
 no caderno. Funcionam sobre as notas e os rascunhos no aparelho.
+
+O `0.17.0-dev.8` recupera as datas das crônicas. É possível adicionar,
+editar e remover várias datas no calendário em português. O campo legado
+`dates` continua armazenando timestamps ISO. A interface usa o dia civil
+que consta do timestamp, preservando datas legadas e evitando deslocamento
+de fuso na exibição. O app ordena pela primeira data de cada crônica, com
+opção de inverter e crônicas sem data no fim. A fila local também guarda as
+datas. Alterações concorrentes nesse campo vão para **Revisar edição**.
+O recurso usa as RPCs já presentes no projeto de teste.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas

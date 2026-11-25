@@ -15,6 +15,7 @@ import 'gm_note_page.dart';
 import 'notebook_editor.dart';
 import 'notebook_sync.dart';
 import 'offline_storage.dart';
+import 'session_dates.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,9 @@ class RpgMasterSet extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'RPG Master Set',
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xffa86d3a),
@@ -592,6 +596,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   Timer? _poll;
   final _search = TextEditingController();
   String? _category;
+  bool _recentFirst = true;
 
   @override
   void initState() {
@@ -777,6 +782,25 @@ class _NotebookScreenState extends State<NotebookScreen>
     );
   }
 
+  List<CampaignRecord> _orderSessions(List<CampaignRecord> records) {
+    final rows = [
+      for (final (index, record) in records.indexed)
+        (index: index, date: firstSessionDay(record.dates), record: record),
+    ];
+    rows.sort((a, b) {
+      final first = a.date;
+      final second = b.date;
+      if (first == null && second == null) return a.index.compareTo(b.index);
+      if (first == null) return 1;
+      if (second == null) return -1;
+      final order = _recentFirst
+          ? second.compareTo(first)
+          : first.compareTo(second);
+      return order == 0 ? a.index.compareTo(b.index) : order;
+    });
+    return rows.map((row) => row.record).toList(growable: false);
+  }
+
   Widget _records() {
     final notebook = _sync.notebook;
     if (notebook == null) {
@@ -806,7 +830,7 @@ class _NotebookScreenState extends State<NotebookScreen>
         .where((term) => term.isNotEmpty);
     final searching = terms.isNotEmpty || _category != null;
 
-    bool matches(NotebookText text, String? category) {
+    bool matches(NotebookText text, String? category, List<String> dates) {
       if (_category != null && category != _category) return false;
       if (terms.isEmpty) return true;
       final content = removeDiacritics(
@@ -816,6 +840,7 @@ class _NotebookScreenState extends State<NotebookScreen>
           text.answer,
           text.confidence,
           category ?? '',
+          ...dates.map(sessionDateLabel),
         ].join(' ').toLowerCase(),
       );
       return terms.every(content.contains);
@@ -823,16 +848,24 @@ class _NotebookScreenState extends State<NotebookScreen>
 
     final drafts = {
       for (final draft in allDrafts)
-        if (matches(draft.text, draft.category)) draft.id: draft,
+        if (matches(
+          draft.text,
+          draft.category,
+          draft.dates ?? draft.original?.dates ?? const [],
+        ))
+          draft.id: draft,
     };
     final draftIds = allDrafts.map((draft) => draft.id).toSet();
-    final entries = allEntries
+    final matchingEntries = allEntries
         .where(
           (record) =>
               !draftIds.contains(record.id) &&
-              matches(record.text, record.category),
+              matches(record.text, record.category, record.dates),
         )
         .toList(growable: false);
+    final entries = isSession
+        ? _orderSessions(matchingEntries)
+        : matchingEntries;
     final header = <Widget>[
       if (_sync.localError)
         const ListTile(
@@ -844,13 +877,32 @@ class _NotebookScreenState extends State<NotebookScreen>
           leading: const Icon(Icons.cloud_off_outlined),
           title: Text(_sync.error ?? 'Sem conexão · cópia neste aparelho'),
         ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: FilledButton.icon(
-          onPressed: () => _edit(notebook),
-          icon: const Icon(Icons.add),
-          label: Text(isSession ? 'Nova crônica' : 'Novo registro'),
-        ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          FilledButton.icon(
+            onPressed: () => _edit(notebook),
+            icon: const Icon(Icons.add),
+            label: Text(isSession ? 'Nova crônica' : 'Novo registro'),
+          ),
+          if (isSession)
+            PopupMenuButton<bool>(
+              icon: const Icon(Icons.sort),
+              tooltip: 'Ordenar por data',
+              initialValue: _recentFirst,
+              onSelected: (recent) => setState(() => _recentFirst = recent),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: true,
+                  child: Text('Mais recentes primeiro'),
+                ),
+                PopupMenuItem(
+                  value: false,
+                  child: Text('Mais antigas primeiro'),
+                ),
+              ],
+            ),
+        ],
       ),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -945,7 +997,15 @@ class _NotebookScreenState extends State<NotebookScreen>
                       ),
                   ],
                 ),
-                if (record.category case final category?) Text(category),
+                if (isSession && record.dates.isNotEmpty)
+                  Text(
+                    record.dates.map(sessionDateLabel).join(' · '),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                if (!isSession && record.category != null)
+                  Text(record.category!),
                 if (record.confidence case final confidence?)
                   Text('Confiança · $confidence'),
                 if (record.body.isNotEmpty) SelectableText(record.body),

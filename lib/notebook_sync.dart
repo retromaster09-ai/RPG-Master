@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campaigns.dart';
 import 'offline_storage.dart';
+import 'session_dates.dart';
 
 const notebookRequestTimeout = Duration(seconds: 12);
 
@@ -32,6 +33,7 @@ class NotebookDraft {
     required this.category,
     required this.epoch,
     required this.text,
+    this.dates,
     this.original,
     this.status = DraftStatus.editing,
     this.message,
@@ -43,6 +45,7 @@ class NotebookDraft {
     category: data['category'] as String,
     epoch: data['epoch'] as int,
     text: CampaignRecord.fromJson(data['text'] as Map<String, dynamic>).text,
+    dates: data['dates'] == null ? null : readSessionDates(data['dates']),
     original: data['original'] == null
         ? null
         : CampaignRecord.fromJson(data['original'] as Map<String, dynamic>),
@@ -57,6 +60,7 @@ class NotebookDraft {
   final String category;
   final int epoch;
   final NotebookText text;
+  final List<String>? dates;
   final CampaignRecord? original;
   final DraftStatus status;
   final String? message;
@@ -70,6 +74,7 @@ class NotebookDraft {
         category: category,
         epoch: epoch,
         text: text,
+        dates: dates,
         original: original,
         status: status,
         message: conflict?.message,
@@ -87,6 +92,7 @@ class NotebookDraft {
       'confidence': text.confidence,
     },
     'original': original?.toJson(),
+    'dates': dates,
     'status': status.name,
     'message': message,
     'remote': remote?.toJson(),
@@ -269,6 +275,7 @@ class NotebookSync extends ChangeNotifier {
             category: draft.category,
             text: draft.text,
             original: draft.original,
+            dates: draft.dates,
           )
           .timeout(notebookRequestTimeout);
       if (!_active) return;

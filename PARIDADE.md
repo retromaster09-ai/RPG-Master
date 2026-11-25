@@ -10,7 +10,8 @@ O `0.17.0-dev.5` completa a primeira etapa da ordem proposta. Para o uso
 diário, a versão `0.17.0-dev.6` recupera a cópia local, os rascunhos e a
 fila de envio dos textos compartilhados. A versão `0.17.0-dev.7` recupera as
 capas de campanha e a busca no caderno e nas crônicas, com filtro de categoria
-no caderno. Datas e organização continuam pendentes.
+no caderno. A versão `0.17.0-dev.8` recupera datas múltiplas e a ordem
+cronológica nas crônicas. Organização manual e lixeira continuam pendentes.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

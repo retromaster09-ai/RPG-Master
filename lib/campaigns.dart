@@ -2,7 +2,10 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'session_dates.dart';
 
 class Campaign {
   const Campaign({
@@ -90,6 +93,7 @@ class CampaignRecord {
     this.answer = '',
     this.category,
     this.confidence,
+    this.dates = const [],
   });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
@@ -104,6 +108,7 @@ class CampaignRecord {
       id: json['id'] is String ? json['id'] as String : null,
       answer: answer is String ? answer : '',
       category: category is String && category.isNotEmpty ? category : null,
+      dates: readSessionDates(json['dates']),
       confidence:
           confidence is String &&
               confidence.isNotEmpty &&
@@ -119,6 +124,7 @@ class CampaignRecord {
   final String answer;
   final String? category;
   final String? confidence;
+  final List<String> dates;
 
   NotebookText get text => (
     title: title,
@@ -134,6 +140,7 @@ class CampaignRecord {
     'answer': answer,
     'category': category,
     'confidence': confidence,
+    'dates': dates,
   };
 }
 
@@ -448,6 +455,7 @@ class CampaignRepository {
     required String category,
     required NotebookText text,
     CampaignRecord? original,
+    List<String>? dates,
   }) async {
     if (original != null && original.id != id) {
       throw ArgumentError('O registro editado precisa ter o mesmo ID.');
@@ -470,7 +478,8 @@ class CampaignRepository {
           final existing = CampaignRecord.fromJson(entries[index]);
           if (entries[index]['deletedAt'] == null &&
               existing.text == text &&
-              existing.category == category) {
+              existing.category == category &&
+              (dates == null || listEquals(existing.dates, dates))) {
             return;
           }
           throw NotebookConflict(
@@ -478,14 +487,14 @@ class CampaignRepository {
             current: existing,
           );
         }
-        entries.add(_newEntry(id, category, text));
+        entries.add(_newEntry(id, category, text, dates ?? const []));
       } else {
         if (index < 0 || entries[index]['deletedAt'] != null) {
           throw const NotebookConflict(
             'Este registro foi removido durante a edição.',
           );
         }
-        final merged = _mergeEntry(entries[index], original.text, text);
+        final merged = _mergeEntry(entries[index], original, text, dates);
         if (merged.isEmpty) return;
         entries[index] = {...entries[index], ...merged};
       }
@@ -604,21 +613,23 @@ class CampaignRepository {
 
 Map<String, Object> _mergeEntry(
   Map<String, dynamic> entry,
-  NotebookText original,
+  CampaignRecord original,
   NotebookText draft,
+  List<String>? dates,
 ) {
   final current = CampaignRecord.fromJson(entry);
   final remote = current.text;
+  final beforeText = original.text;
   final changes = <String, Object>{};
 
   for (final (name, label, before, saved, desired) in [
-    ('title', 'o título', original.title, remote.title, draft.title),
-    ('body', 'o texto', original.body, remote.body, draft.body),
-    ('answer', 'a resposta', original.answer, remote.answer, draft.answer),
+    ('title', 'o título', beforeText.title, remote.title, draft.title),
+    ('body', 'o texto', beforeText.body, remote.body, draft.body),
+    ('answer', 'a resposta', beforeText.answer, remote.answer, draft.answer),
     (
       'confidence',
       'a confiança',
-      original.confidence,
+      beforeText.confidence,
       remote.confidence,
       draft.confidence,
     ),
@@ -635,6 +646,17 @@ Map<String, Object> _mergeEntry(
       final marksKey = '${name}Marks';
       changes[marksKey] = _moveUnchangedMarks(entry[marksKey], saved, desired);
     }
+  }
+  if (dates != null &&
+      !listEquals(dates, original.dates) &&
+      !listEquals(dates, current.dates)) {
+    if (!listEquals(original.dates, current.dates)) {
+      throw NotebookConflict(
+        'Outra pessoa alterou as datas da crônica. Seu rascunho continua aberto.',
+        current: current,
+      );
+    }
+    changes['dates'] = dates;
   }
   return changes;
 }
@@ -664,27 +686,31 @@ List<Object?> _moveUnchangedMarks(Object? value, String old, String updated) {
   ];
 }
 
-Map<String, Object> _newEntry(String id, String category, NotebookText text) =>
-    {
-      'id': id,
-      'category': category,
-      'title': text.title,
-      'body': text.body,
-      'answer': text.answer,
-      'confidence': text.confidence,
-      'paper': 'Leitura simples',
-      'source': '',
-      'resolution': 'open',
-      'priority': 'Normal',
-      'started': false,
-      'completed': false,
-      'dates': <Object>[],
-      'steps': <Object>[],
-      'history': <Object>[],
-      'pictures': <Object>[],
-      'bodyMarks': <Object>[],
-      'answerMarks': <Object>[],
-      'thumbLook': <String, Object>{},
-      'pageLook': <String, Object>{},
-      'orders': <String, Object>{},
-    };
+Map<String, Object> _newEntry(
+  String id,
+  String category,
+  NotebookText text,
+  List<String> dates,
+) => {
+  'id': id,
+  'category': category,
+  'title': text.title,
+  'body': text.body,
+  'answer': text.answer,
+  'confidence': text.confidence,
+  'paper': 'Leitura simples',
+  'source': '',
+  'resolution': 'open',
+  'priority': 'Normal',
+  'started': false,
+  'completed': false,
+  'dates': dates,
+  'steps': <Object>[],
+  'history': <Object>[],
+  'pictures': <Object>[],
+  'bodyMarks': <Object>[],
+  'answerMarks': <Object>[],
+  'thumbLook': <String, Object>{},
+  'pageLook': <String, Object>{},
+  'orders': <String, Object>{},
+};

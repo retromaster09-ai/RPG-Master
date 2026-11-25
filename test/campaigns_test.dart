@@ -9,6 +9,7 @@ import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/main.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
 import 'package:rpg_master_set/offline_storage.dart';
+import 'package:rpg_master_set/session_dates.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const campaign = Campaign(id: 'campaign', name: 'O farol', ownerId: 'master');
@@ -200,6 +201,7 @@ void main() {
         id: 'local-draft',
         category: 'Sessão',
         epoch: 0,
+        dates: ['2026-11-25T00:00:00.000Z'],
         text: (
           title: 'Rascunho da sessão',
           body: '',
@@ -225,6 +227,7 @@ void main() {
     expect(repository.saves, 1);
     expect(second.notebook!.records.single.body, 'Texto offline');
     expect(second.drafts.single.status, DraftStatus.editing);
+    expect(second.drafts.single.dates, ['2026-11-25T00:00:00.000Z']);
   });
 
   test('fila de uma geração antiga mantém o texto sem reenviar', () async {
@@ -334,6 +337,68 @@ void main() {
     expect(editing, isTrue);
   });
 
+  testWidgets('as crônicas mostram datas antigas e mudam a ordem por data', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(550, 1250));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository()
+      ..sessions = [
+        {'id': 'undated', 'title': 'Relato sem data', 'category': 'Sessão'},
+        {
+          'id': 'early',
+          'title': 'Primeira noite',
+          'category': 'Sessão',
+          'dates': ['2026-01-09T00:00:00.000'],
+        },
+        {
+          'id': 'late',
+          'title': 'Segunda noite',
+          'category': 'Sessão',
+          'dates': ['2026-02-09T23:30:00-03:00'],
+        },
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Crônicas'));
+    await tester.pumpAndSettle();
+    final early = find.text('Primeira noite');
+    final late = find.text('Segunda noite');
+    final undated = find.text('Relato sem data');
+    double position(Finder finder) => tester.getTopLeft(finder).dy;
+    expect(position(late), lessThan(position(early)));
+    expect(position(early), lessThan(position(undated)));
+    expect(find.text('09/02/2026'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Ordenar por data'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mais antigas primeiro'));
+    await tester.pumpAndSettle();
+    expect(position(early), lessThan(position(late)));
+    expect(position(late), lessThan(position(undated)));
+
+    await tester.tap(find.text('Nova crônica'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar data'));
+    await tester.pumpAndSettle();
+    expect(find.text('Data da sessão'), findsOneWidget);
+    await tester.tap(find.text('Confirmar'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(sessionDateLabel(sessionDateValue(DateTime.now()))),
+      findsOneWidget,
+    );
+  });
+
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {
     final client = SupabaseClient(
       'https://example.invalid',
@@ -434,6 +499,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
   bool online = true;
   int epoch = 0;
   int saves = 0;
+  List<Map<String, Object>> sessions = const [];
 
   @override
   Future<Notebook> readNotebook(String campaignId, {Notebook? known}) async {
@@ -448,6 +514,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
           'body': body,
           'category': 'Investigação',
         },
+        ...sessions,
       ],
     });
   }
@@ -460,6 +527,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
     required String category,
     required NotebookText text,
     CampaignRecord? original,
+    List<String>? dates,
   }) async {
     saves++;
     body = text.body;

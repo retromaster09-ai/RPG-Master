@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
 import 'notebook_sync.dart';
+import 'session_dates.dart';
 
 class NotebookEditor extends StatefulWidget {
   const NotebookEditor({
@@ -62,7 +64,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
       _baseRecord?.category ??
       (widget.isSession ? 'Sessão' : _categories.first);
   late String _category = widget.savedDraft?.category ?? _startingCategory;
+  late List<String> _dates =
+      widget.savedDraft?.dates ?? _baseRecord?.dates ?? const [];
   bool _saving = false;
+  bool _choosingDate = false;
   bool _confirmingClose = false;
   bool _savedLocally = false;
   late String? _error = widget.savedDraft?.message;
@@ -88,6 +93,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     category: _category,
     epoch: widget.savedDraft?.epoch ?? widget.epoch,
     text: _draft,
+    dates: widget.isSession ? _dates : null,
     original: _baseRecord,
     status: status,
     message: status == DraftStatus.editing ? _error : null,
@@ -113,6 +119,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     if (widget.savedDraft == null &&
         !_savedLocally &&
         _draft == _original &&
+        listEquals(_dates, _baseRecord?.dates ?? const []) &&
         _category == _startingCategory) {
       widget.onClose();
       return;
@@ -130,6 +137,46 @@ class _NotebookEditorState extends State<NotebookEditor> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _chooseDate([int? index]) async {
+    if (_choosingDate || _saving) return;
+    _choosingDate = true;
+    final previous = index == null ? null : _dates[index];
+    try {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: previous == null ? DateTime.now() : sessionDay(previous),
+        firstDate: DateTime(1),
+        lastDate: DateTime(9999, 12, 31),
+        helpText: 'Data da sessão',
+        cancelText: 'Cancelar',
+        confirmText: 'Confirmar',
+      );
+      if (!mounted || date == null) return;
+      final value = sessionDateValue(date);
+      if (previous != null && sessionDay(previous) == date) return;
+      if (_dates.any((saved) => sessionDay(saved) == date)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Essa data já está na crônica.')),
+        );
+        return;
+      }
+      final dates = [..._dates];
+      if (index == null) {
+        dates.add(value);
+      } else {
+        dates[index] = value;
+      }
+      _updateDates(dates..sort());
+    } finally {
+      _choosingDate = false;
+    }
+  }
+
+  void _updateDates(List<String> dates) {
+    setState(() => _dates = dates);
+    unawaited(_persistDraft());
   }
 
   Future<void> _discard() async {
@@ -195,7 +242,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   void _compareWithSaved(CampaignRecord current) {
-    final previous = _baseRecord!.text;
+    final previousRecord = _baseRecord!;
+    final previous = previousRecord.text;
     final draft = _draft;
     final remote = current.text;
     if (draft.title == previous.title) _title.text = remote.title;
@@ -205,6 +253,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
       if (draft.confidence == previous.confidence) {
         _confidence = remote.confidence;
       }
+      if (listEquals(_dates, previousRecord.dates)) _dates = current.dates;
       _baseRecord = current;
       _current = null;
       _error = null;
@@ -260,6 +309,30 @@ class _NotebookEditorState extends State<NotebookEditor> {
               onChanged: (_) => unawaited(_persistDraft()),
               decoration: const InputDecoration(labelText: 'Título'),
             ),
+            if (widget.isSession) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final (index, date) in _dates.indexed)
+                    InputChip(
+                      label: Text(sessionDateLabel(date)),
+                      onPressed: _saving ? null : () => _chooseDate(index),
+                      onDeleted: _saving
+                          ? null
+                          : () => _updateDates([..._dates]..removeAt(index)),
+                      deleteButtonTooltipMessage: 'Remover data',
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : _chooseDate,
+                    icon: const Icon(Icons.event_outlined),
+                    label: const Text('Adicionar data'),
+                  ),
+                ],
+              ),
+            ],
             TextField(
               controller: _body,
               enabled: !_saving,
@@ -319,6 +392,15 @@ class _NotebookEditorState extends State<NotebookEditor> {
                     title: const Text('Confiança'),
                     subtitle: Text(current.text.confidence),
                   ),
+                  if (widget.isSession)
+                    ListTile(
+                      title: const Text('Datas da sessão'),
+                      subtitle: Text(
+                        current.dates.isEmpty
+                            ? 'Sem data'
+                            : current.dates.map(sessionDateLabel).join(' · '),
+                      ),
+                    ),
                   if (_baseRecord != null)
                     TextButton(
                       onPressed: () => _compareWithSaved(current),

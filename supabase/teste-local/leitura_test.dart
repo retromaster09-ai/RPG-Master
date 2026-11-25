@@ -163,11 +163,14 @@ void main() {
             'Investigação',
             'Uma pista',
           ),
-          _entry(
-            '10000000-0000-4000-8000-000000000002',
-            'Sessão',
-            'A primeira sessão',
-          ),
+          {
+            ..._entry(
+              '10000000-0000-4000-8000-000000000002',
+              'Sessão',
+              'A primeira sessão',
+            ),
+            'dates': ['2026-01-09T00:00:00.000'],
+          },
         ],
       },
     );
@@ -198,6 +201,39 @@ void main() {
       expect(notebook.records.single.title, 'Uma pista');
       expect(notebook.sessions.single.title, 'A primeira sessão');
     }
+    final sessionBaseline = await gmRepo.readNotebook(campaignId);
+    final datedSession = sessionBaseline.sessions.single;
+    expect(datedSession.dates, ['2026-01-09T00:00:00.000']);
+    final sessionDates = [...datedSession.dates, '2026-01-12T00:00:00.000Z'];
+    await gmRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: sessionBaseline,
+      id: datedSession.id!,
+      category: 'Sessão',
+      text: datedSession.text,
+      original: datedSession,
+      dates: sessionDates,
+    );
+    final anotherSession = await playerRepo.readNotebook(campaignId);
+    expect(anotherSession.sessions.single.dates, sessionDates);
+    await expectLater(
+      playerRepo.saveNotebookRecord(
+        campaignId: campaignId,
+        notebook: sessionBaseline,
+        id: datedSession.id!,
+        category: 'Sessão',
+        text: datedSession.text,
+        original: datedSession,
+        dates: ['2026-01-15T00:00:00.000Z'],
+      ),
+      throwsA(
+        isA<NotebookConflict>().having(
+          (error) => error.current?.dates,
+          'datas compartilhadas',
+          sessionDates,
+        ),
+      ),
+    );
     final legacy = (await gmRepo.readGmNotes(campaign)).single;
     expect(legacy.text.title, 'Uma nota privada de teste');
     expect(legacy.text.kind, GmNoteKind.note);

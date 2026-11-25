@@ -78,6 +78,13 @@ As buscas do **Caderno** e das **Crônicas** encontram palavras com ou sem
 acentos no título, no texto e nas respostas, inclusive na cópia local.
 O **Caderno** também pode ser filtrado por categoria.
 
+Em **Crônicas**, use **Adicionar data** para registrar uma ou várias datas
+da sessão. Toque numa data para editar e use o **×** para removê-la do
+relato. A lista usa a primeira data de cada crônica para ordenar e exibe
+primeiro as sessões mais recentes. O botão de ordenação inverte a ordem.
+Crônicas sem data aparecem no fim. As datas também entram nos rascunhos
+locais e seguem as regras de revisão da sincronização.
+
 Na aba **Mestre**, o criador da campanha pode criar e editar notas
 privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
 de cada nota para impedir que duas edições se sobrescrevam. O título,
