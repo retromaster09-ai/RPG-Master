@@ -10,7 +10,9 @@ chat. Leia também o README e o histórico Git.
   chave de depuração. O código Dart original ainda não foi localizado.
 - O primeiro commit preservou os recursos visuais e as fontes do APK.
   O repositório agora contém a primeira implementação Flutter. O README
-  explica como executá-la com o SDK fixado.
+  explica como executá-la com o SDK fixado. Em 25/11/2026, a análise,
+  os testes e a compilação web passaram. A compilação Android e o teste
+  com duas contas no Supabase ainda estão pendentes.
 - O mestre tem acesso ao projeto Supabase de produção usado pelo APK.
   O banco tem dados de teste. O mestre exportou os cinco CSVs das tabelas
   conhecidas e os anexou em 25/11/2026. Os dados do mestre e da campanha
