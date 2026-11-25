@@ -13,6 +13,10 @@ chat. Leia também o README e o histórico Git.
   explica como executá-la com o SDK fixado. Em 25/11/2026, a análise,
   os testes e a compilação web passaram. A compilação Android e o teste
   com duas contas no Supabase ainda estão pendentes.
+- Os 24 commits do repositório público `retromaster09-ai/RPG-Master`
+  contêm APKs, prévias e scripts do Supabase. Não apareceu o projeto
+  Flutter original. Os scripts e guias foram preservados em
+  `supabase/legado-0.16.2/`.
 - O mestre tem acesso ao projeto Supabase de produção usado pelo APK.
   O banco tem dados de teste. O mestre exportou os cinco CSVs das tabelas
   conhecidas e os anexou em 25/11/2026. Os dados do mestre e da campanha
@@ -47,8 +51,8 @@ usados pelo PostgREST e os tipos de retorno das cinco funções principais.
    `rpg_gm_list_v2(p_campaign)` para leitura, além da lista de campanhas.
    O export atual tem 98 entradas em array de objetos; 17 têm categoria
    `Sessão`, das quais quatro estão na lixeira. O leitor usa `category`,
-   `title`, `body`, `answer`, `confidence` e `deletedAt`. Falta validar se
-   a RPC devolve o envelope `{"entries": [...]}` no Supabase de teste.
+   `title`, `body`, `answer`, `confidence` e `deletedAt`. O SQL original
+   confirma o envelope `{"entries": [...]}`. Falta testar no servidor.
 2. Testar em ambiente separado a leitura com contas de mestre e jogador.
    Preservar as migrações do banco e verificar as políticas e a
    autorização das funções com ambas as contas. Implementar a edição

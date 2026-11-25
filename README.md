@@ -40,11 +40,13 @@ que bloqueia a leitura e as imagens para jogadores.
 Essa versão não grava no banco. O formato dos objetos em `entries` foi
 confirmado com os CSVs da campanha. O leitor passou nos testes com
 respostas simuladas e processou o caderno atual e suas 20 versões
-exportadas. A resposta da RPC ainda precisa ser validada
-no projeto de teste. O login com nome de usuário, a
+exportadas. O SQL original confirma o envelope da RPC. O fluxo
+com contas reais ainda precisa ser validado no projeto de teste. O login com nome de usuário, a
 recuperação por código, a edição colaborativa e os recursos de jogo
 continuam pendentes.
 
 Em `supabase/` ficam as consultas de inventário, as assinaturas
-confirmadas e a inspeção do formato das entradas. Backups com registros,
+confirmadas e a inspeção do formato das entradas. A pasta `supabase/legado-0.16.2/` preserva
+os scripts e os guias do Supabase publicados com o APK original.
+Backups com registros,
 arquivos do Storage, senhas e chaves ficam fora do repositório.
