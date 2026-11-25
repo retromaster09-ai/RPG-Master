@@ -61,3 +61,5 @@ confirmadas e a inspeção do formato das entradas. A pasta `supabase/legado-0.1
 os scripts e os guias do Supabase publicados com o APK original.
 Backups com registros,
 arquivos do Storage, senhas e chaves ficam fora do repositório.
+O procedimento de cópia e conferência está em
+[Backup e restauração](supabase/BACKUP.md).

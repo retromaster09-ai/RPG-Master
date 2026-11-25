@@ -19,7 +19,9 @@ chat. Leia também o README e o histórico Git.
 - O mestre tem acesso ao projeto Supabase de produção usado pelo APK.
   O banco tem dados de teste. O mestre exportou os cinco CSVs das tabelas
   conhecidas e os anexou em 25/11/2026. Os dados do mestre e da campanha
-  ficam fora do Git. O download das imagens de teste ficou opcional.
+  ficam fora do Git. A conferência em 25/11/2026 confirmou que as contagens
+  dos CSVs batem com o banco principal. A cópia restaurável das contas e
+  dos arquivos continua pendente. Veja [Backup e restauração](supabase/BACKUP.md).
 - O CSV de metadados em `supabase/inventario-0.16.2.csv` confirma cinco
   tabelas, 38 colunas, 22 assinaturas de funções e nove políticas.
   A lista de políticas mostra os nomes e as operações, sem a lógica das
@@ -115,7 +117,8 @@ inclusive quando inspeciona o tráfego do próprio app.
   instruções de compilação no GitHub do mestre. O repositório está
   público por escolha do mestre nesta etapa. Ao concluí-la, atualizar
   este arquivo e enviar o commit ao repositório.
-- Guardar backups dos dados e dos arquivos do Storage separadamente.
+- Seguir o [guia de backup e restauração](supabase/BACKUP.md) para guardar
+  os dados do banco e os arquivos do Storage separadamente.
   Guardar credenciais e a chave de assinatura Android em lugar privado.
   Um backup só está verificado depois de uma restauração de teste.
 - Para uma cópia histórica sem depender do servidor Git, executar
