@@ -95,8 +95,13 @@ revoga as sessões anteriores.
 A migração de contas e a função `rpg-account` foram aplicadas ao
 projeto de teste. Os testes de integração verificaram o vínculo da
 conta, a aprovação pelo mestre correto, a troca da senha, a revogação
-de sessão e o código de reserva. Testar o fluxo nos aparelhos antes
-de aplicar a migração e a função ao projeto principal. O procedimento
+de sessão e o código de reserva. No APK, o mestre confirmou o teste
+com as duas contas em um celular. O jogador vinculou um nome de
+usuário, solicitou o código, redefiniu a senha após a aprovação do
+mestre e conseguiu entrar com o usuário e a senha nova. A geração
+do código de reserva também funcionou no aparelho.
+
+A ativação no projeto principal ainda está pendente. O procedimento
 está em [CONTAS.md](supabase/CONTAS.md). O [APK ARM64 deste teste](downloads/RPG-Master-Set-0.17.0-dev.2-android-arm64-teste.apk)
 atualiza o APK de teste anterior com a mesma assinatura.
 
