@@ -1,0 +1,182 @@
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:rpg_master_set/campaigns.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+void main() {
+  const endpoint = String.fromEnvironment(
+    'SUPABASE_TEST_URL',
+    defaultValue: 'http://127.0.0.1:54321',
+  );
+  const key = String.fromEnvironment('SUPABASE_TEST_KEY');
+
+  test('mestre e jogador leem somente o conteúdo autorizado', () async {
+    final uri = Uri.parse(endpoint);
+    // Este teste cria contas e grava fixtures em um Supabase descartável.
+    expect(uri.scheme, 'http');
+    expect(uri.host, anyOf('127.0.0.1', 'localhost', '::1'));
+    expect(key, isNotEmpty, reason: 'Use a chave pública do Supabase local.');
+
+    final gm = SupabaseClient(endpoint, key);
+    final player = SupabaseClient(endpoint, key);
+    addTearDown(gm.dispose);
+    addTearDown(player.dispose);
+
+    final run = DateTime.now().microsecondsSinceEpoch;
+    await _signUp(gm, 'mestre-$run@example.com');
+    await _signUp(player, 'jogador-$run@example.com');
+
+    final campaignId = await gm.rpc<String>(
+      'rpg_create_campaign',
+      params: {'p_name': 'Campanha fictícia'},
+    );
+    final memberArgs = {'p_campaign': campaignId};
+
+    final playerRepo = CampaignRepository(player);
+    expect((await playerRepo.list()).where((c) => c.id == campaignId), isEmpty);
+    await expectLater(
+      playerRepo.readNotebook(campaignId),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
+
+    final invitation = await gm.rpc<String>(
+      'rpg_create_invite',
+      params: memberArgs,
+    );
+    await player.rpc<String>(
+      'rpg_join_campaign',
+      params: {'p_token': invitation},
+    );
+
+    await gm.rpc<int>(
+      'rpg_save_notebook_v3',
+      params: {
+        ...memberArgs,
+        'p_expected': 0,
+        'p_epoch': 0,
+        'p_entries': [
+          _entry(
+            '10000000-0000-4000-8000-000000000001',
+            'Investigação',
+            'Uma pista',
+          ),
+          _entry(
+            '10000000-0000-4000-8000-000000000002',
+            'Sessão',
+            'A primeira sessão',
+          ),
+        ],
+      },
+    );
+    await gm.rpc<int>(
+      'rpg_gm_save_visual',
+      params: {
+        ...memberArgs,
+        'p_id': campaignId,
+        'p_expected': 0,
+        'p_note': {
+          'title': 'Uma nota privada de teste',
+          'body': 'Informação fictícia reservada ao mestre.',
+          'section': 'idea',
+          'state': 'idea',
+          'tags': '',
+          'cue': '',
+          'music': '',
+          'next_session': false,
+        },
+      },
+    );
+
+    final gmRepo = CampaignRepository(gm);
+    final campaign = (await gmRepo.list()).singleWhere(
+      (c) => c.id == campaignId,
+    );
+    expect(campaign.ownerId, gm.auth.currentUser!.id);
+    expect((await playerRepo.list()).map((c) => c.id), contains(campaignId));
+
+    for (final repo in [gmRepo, playerRepo]) {
+      final notebook = await repo.readNotebook(campaignId);
+      expect(notebook.records.single.title, 'Uma pista');
+      expect(notebook.sessions.single.title, 'A primeira sessão');
+    }
+    expect(
+      (await gmRepo.readGmNotes(campaign)).single.title,
+      'Uma nota privada de teste',
+    );
+    await expectLater(playerRepo.readGmNotes(campaign), throwsStateError);
+    await expectLater(
+      player.rpc<List<dynamic>>('rpg_gm_list_v2', params: memberArgs),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
+    final filteredRows = await player
+        .from('rpg_gm_notes')
+        .select('id')
+        .eq('campaign_id', campaignId);
+    expect(filteredRows, isEmpty);
+
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKx8AAAAASUVORK5CYII=',
+    );
+    final name = '$campaignId/${List.filled(64, 'a').join()}.png';
+    final gmBucket = gm.storage.from('rpg-gm-private');
+    final playerBucket = player.storage.from('rpg-gm-private');
+    await gmBucket.uploadBinary(
+      name,
+      png,
+      fileOptions: const FileOptions(contentType: 'image/png'),
+    );
+    expect(await gmBucket.download(name), orderedEquals(png));
+    expect(await playerBucket.list(path: campaignId), isEmpty);
+    await expectLater(
+      playerBucket.download(name),
+      throwsA(isA<StorageException>()),
+    );
+
+    final sharedBucket = gm.storage.from('rpg-notes');
+    await sharedBucket.uploadBinary(
+      name,
+      png,
+      fileOptions: const FileOptions(contentType: 'image/png'),
+    );
+    expect(
+      await player.storage.from('rpg-notes').download(name),
+      orderedEquals(png),
+    );
+  }, timeout: const Timeout(Duration(seconds: 40)));
+}
+
+Future<void> _signUp(SupabaseClient client, String email) async {
+  final auth = await client.auth.signUp(
+    email: email,
+    password: 'Senha-local-teste!29',
+  );
+  expect(
+    auth.session,
+    isNotNull,
+    reason: 'Desabilite confirmação de e-mail no Supabase local.',
+  );
+}
+
+Map<String, Object> _entry(String id, String category, String title) => {
+  'id': id,
+  'category': category,
+  'title': title,
+  'body': 'Texto de teste.',
+  'source': '',
+  'confidence': 'Não se aplica',
+  'answer': '',
+  'paper': 'Leitura simples',
+  'resolution': 'open',
+  'priority': 'normal',
+  'completed': false,
+  'started': false,
+  'dates': <String>[],
+  'history': <String>[],
+  'pictures': <Object>[],
+  'steps': <Object>[],
+  'bodyMarks': <Object>[],
+  'answerMarks': <Object>[],
+  'thumbLook': <String, Object>{},
+  'pageLook': <String, Object>{},
+};

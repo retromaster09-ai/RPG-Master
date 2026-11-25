@@ -1,0 +1,9 @@
+preparar-campanhas
+compartilhar-notas
+corrigir-imagens-antes-do-texto
+capas-das-campanhas
+codigos-e-participantes
+roteiro-do-mestre
+imagens-e-leitura-do-mestre
+ativar-ferramentas-0.15
+organizacao-e-lixeira-0.16

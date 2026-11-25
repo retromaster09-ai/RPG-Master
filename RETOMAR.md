@@ -45,6 +45,16 @@ O caderno tem sincronização por revisão, com
 de gravação. O CSV `supabase/contrato-rpc-0.16.2.csv` confirma os nomes
 usados pelo PostgREST e os tipos de retorno das cinco funções principais.
 
+## Validação da área privada
+
+Os nove scripts originais, em ordem histórica, foram aplicados em
+PostgreSQL descartável. O teste `supabase/teste-local/permissoes.sql`
+confirmou que mestre e jogador leem o caderno e que apenas o mestre
+lê as notas e o catálogo dos arquivos privados. O banco de produção
+não foi usado. O teste pelo SDK Flutter e pelas APIs de Auth e Storage
+está preparado em `supabase/teste-local/`; a execução completa ficou
+pendente por falta de espaço no Docker do ambiente Codex.
+
 ## Prioridades
 
 1. A primeira implementação já usa `rpg_read_notebook(p_campaign)` e
