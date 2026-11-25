@@ -99,10 +99,10 @@ void main() {
           'body': 'Informação fictícia reservada ao mestre.',
           'section': 'idea',
           'state': 'idea',
-          'tags': '',
+          'tags': 'privado',
           'cue': '',
           'music': '',
-          'next_session': false,
+          'next_session': true,
         },
       },
     );
@@ -119,9 +119,47 @@ void main() {
       expect(notebook.records.single.title, 'Uma pista');
       expect(notebook.sessions.single.title, 'A primeira sessão');
     }
-    expect(
-      (await gmRepo.readGmNotes(campaign)).single.title,
-      'Uma nota privada de teste',
+    final legacy = (await gmRepo.readGmNotes(campaign)).single;
+    expect(legacy.text.title, 'Uma nota privada de teste');
+    final id = newNotebookRecordId();
+    const draft = (
+      title: 'Segredo',
+      body: 'Texto inicial',
+      section: GmSection.idea,
+    );
+    await gmRepo.saveGmNote(campaign: campaign, id: id, draft: draft);
+    await gmRepo.saveGmNote(campaign: campaign, id: id, draft: draft);
+    expect((await gmRepo.readGmNotes(campaign)).length, 2);
+
+    const revised = (
+      title: 'Uma nota revisada',
+      body: 'Texto novo',
+      section: GmSection.backstage,
+    );
+    await gmRepo.saveGmNote(
+      campaign: campaign,
+      id: legacy.id,
+      draft: revised,
+      original: legacy,
+    );
+    final updated = (await gmRepo.readGmNotes(campaign))
+        .singleWhere((note) => note.id == legacy.id);
+    expect(updated.text, revised);
+    expect(updated.revision, legacy.revision + 1);
+    final fields = await gm
+        .from('rpg_gm_notes')
+        .select('tags, next_session')
+        .eq('id', legacy.id)
+        .single();
+    expect(fields, {'tags': 'privado', 'next_session': true});
+    await expectLater(
+      gmRepo.saveGmNote(
+        campaign: campaign,
+        id: legacy.id,
+        draft: draft,
+        original: legacy,
+      ),
+      throwsA(isA<GmNoteConflict>()),
     );
     await expectLater(playerRepo.readGmNotes(campaign), throwsStateError);
     await expectLater(
@@ -133,6 +171,13 @@ void main() {
         .select('id')
         .eq('campaign_id', campaignId);
     expect(filteredRows, isEmpty);
+    await expectLater(
+      player.rpc<int?>(
+        'rpg_try_save_gm_note',
+        params: {...memberArgs, 'p_id': id, 'p_expected': 1, 'p_note': {}},
+      ),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
 
     final png = base64Decode(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKx8AAAAASUVORK5CYII=',

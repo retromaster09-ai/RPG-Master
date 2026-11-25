@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'account_screens.dart';
 import 'accounts.dart';
 import 'campaigns.dart';
+import 'gm_note_editor.dart';
 import 'notebook_editor.dart';
 
 Future<void> main() async {
@@ -405,9 +406,9 @@ class _NotebookScreenState extends State<NotebookScreen> {
   late Future<Notebook> _notebook = widget.repository.readNotebook(
     widget.campaign.id,
   );
-  Future<List<CampaignRecord>>? _privateNotes;
+  Future<List<GmNote>>? _privateNotes;
   _NotebookTab _tab = _NotebookTab.records;
-  NotebookEditor? _editor;
+  Widget? _editor;
 
   void _selectTab(_NotebookTab tab) {
     setState(() {
@@ -445,6 +446,85 @@ class _NotebookScreenState extends State<NotebookScreen> {
         }),
       );
     });
+  }
+
+  void _editGmNote([GmNote? note]) {
+    setState(() {
+      _editor = GmNoteEditor(
+        repository: widget.repository,
+        campaign: widget.campaign,
+        note: note,
+        onClose: _closeGmEditor,
+        onSaved: () {
+          _closeGmEditor();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Nota privada salva.')));
+        },
+      );
+    });
+  }
+
+  void _closeGmEditor() => setState(() {
+    _editor = null;
+    _privateNotes = widget.repository.readGmNotes(widget.campaign);
+  });
+
+  Widget _gmNotes(AsyncSnapshot<List<GmNote>> snapshot) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snapshot.hasError) {
+      return const Center(child: Text('Não foi possível abrir o roteiro.'));
+    }
+    final notes = snapshot.requireData;
+    final sections = <GmSection, List<GmNote>>{};
+    for (final note in notes) {
+      (sections[note.text.section] ??= []).add(note);
+    }
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _editGmNote,
+            icon: const Icon(Icons.add),
+            label: const Text('Nova nota privada'),
+          ),
+        ),
+        if (notes.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: Text('Seu roteiro está vazio.')),
+          ),
+        for (final section in GmSection.values)
+          if (sections[section] case final entries?) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
+              child: Text(
+                section.label,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final note in entries)
+              Card(
+                child: ListTile(
+                  title: Text(note.text.title),
+                  subtitle: note.text.body.isEmpty
+                      ? null
+                      : Text(
+                          note.text.body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                  trailing: const Icon(Icons.edit_outlined),
+                  onTap: () => _editGmNote(note),
+                ),
+              ),
+          ],
+      ],
+    );
   }
 
   Widget _records(
@@ -555,8 +635,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
         body: _tab == _NotebookTab.private
             ? FutureBuilder(
                 future: _privateNotes,
-                builder: (context, snapshot) =>
-                    _records(snapshot, snapshot.data),
+                builder: (context, snapshot) => _gmNotes(snapshot),
               )
             : FutureBuilder(
                 future: _notebook,

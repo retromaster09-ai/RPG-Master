@@ -47,9 +47,14 @@ usa a revisão e a época da campanha. Alterações concorrentes em registros
 ou campos diferentes são combinadas. Se as duas versões mudarem o mesmo
 campo, o editor mantém o rascunho aberto e mostra a versão salva para
 revisão. A formatação de trechos intactos é preservada no salvamento.
-O roteiro continua disponível para leitura pelo mestre. Para editar,
-o projeto Supabase precisa da migração em `supabase/migrations/`.
-Essa migração já foi aplicada no projeto de teste.
+Para editar o caderno, o projeto Supabase precisa da migração de
+sincronização em `supabase/migrations/`, já aplicada no projeto de teste.
+
+Na aba **Mestre**, o criador da campanha pode criar e editar notas
+privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
+de cada nota para impedir que duas edições se sobrescrevam. O título,
+o texto e a seção são editáveis. As funções legadas do Supabase
+autorizam a leitura e a gravação, sem exigir senha extra dentro do app.
 
 A recuperação de senha pelo mestre e pelo código de reserva está ativa
 no Supabase de teste. Os passos de configuração, implantação e teste

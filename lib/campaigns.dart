@@ -137,6 +137,68 @@ class NotebookConflict implements Exception {
   final CampaignRecord? current;
 }
 
+enum GmSection {
+  idea('Ideias'),
+  scene('Cenas'),
+  backstage('Bastidores');
+
+  const GmSection(this.label);
+
+  final String label;
+}
+
+typedef GmNoteText = ({String title, String body, GmSection section});
+
+class GmNoteConflict implements Exception {
+  const GmNoteConflict();
+}
+
+class GmNote {
+  GmNote._(this._row);
+
+  final Map<String, dynamic> _row;
+
+  String get id => _row['id'] as String;
+  int get revision => _row['revision'] as int;
+
+  GmNoteText get text => (
+    title: _row['title'] as String,
+    body: _row['body'] as String,
+    section: GmSection.values.byName(_row['section'] as String),
+  );
+
+  Map<String, dynamic> _payload(GmNoteText draft) {
+    final presentation = _row['presentation'];
+    return {
+      ..._newGmNotePayload(draft),
+      for (final key in ['state', 'tags', 'cue', 'music', 'next_session'])
+        key: _row[key],
+      if (draft.body != text.body &&
+          presentation is Map<String, dynamic> &&
+          presentation.containsKey('marks'))
+        'presentation': {
+          ...presentation,
+          'marks': _moveUnchangedMarks(
+            presentation['marks'],
+            text.body,
+            draft.body,
+          ),
+        },
+    };
+  }
+}
+
+Map<String, Object> _newGmNotePayload(GmNoteText draft) => {
+  'title': draft.title.trim(),
+  'body': draft.body,
+  'section': draft.section.name,
+  'state': 'idea',
+  'tags': '',
+  'cue': '',
+  'music': '',
+  'next_session': false,
+};
+
 class CampaignRepository {
   CampaignRepository(this._client);
 
@@ -219,11 +281,8 @@ class CampaignRepository {
     );
   }
 
-  Future<List<CampaignRecord>> readGmNotes(Campaign campaign) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId != campaign.ownerId) {
-      throw StateError('O roteiro está reservado ao criador da campanha.');
-    }
+  Future<List<GmNote>> readGmNotes(Campaign campaign) async {
+    _requireCampaignOwner(campaign);
     // O Supabase deve autorizar esta RPC mesmo quando chamada fora do app.
     final rows = await _client.rpc<List<dynamic>>(
       'rpg_gm_list_v2',
@@ -232,8 +291,42 @@ class CampaignRepository {
     return rows
         .cast<Map<String, dynamic>>()
         .where((row) => row['deleted_at'] == null)
-        .map(CampaignRecord.fromJson)
+        .map(GmNote._)
         .toList(growable: false);
+  }
+
+  Future<void> saveGmNote({
+    required Campaign campaign,
+    required String id,
+    required GmNoteText draft,
+    GmNote? original,
+  }) async {
+    _requireCampaignOwner(campaign);
+    if (original != null && original.id != id) {
+      throw ArgumentError('A nota editada precisa ter o mesmo ID.');
+    }
+    final revision = await _client.rpc<int?>(
+      'rpg_try_save_gm_note',
+      params: {
+        'p_campaign': campaign.id,
+        'p_id': id,
+        'p_expected': original?.revision ?? 0,
+        'p_note': original?._payload(draft) ?? _newGmNotePayload(draft),
+      },
+    );
+    if (revision != null) return;
+    final notes = await readGmNotes(campaign);
+    final saved = notes.where((note) => note.id == id).firstOrNull;
+    if (saved?.text !=
+        (title: draft.title.trim(), body: draft.body, section: draft.section)) {
+      throw const GmNoteConflict();
+    }
+  }
+
+  void _requireCampaignOwner(Campaign campaign) {
+    if (_client.auth.currentUser?.id != campaign.ownerId) {
+      throw StateError('O roteiro está reservado ao criador da campanha.');
+    }
   }
 }
 

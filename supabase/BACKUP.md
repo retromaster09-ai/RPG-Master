@@ -23,6 +23,8 @@ de leitura feita no banco principal.
 A conferência compara quantidades. Uma cópia restaurável inclui o esquema,
 as regras de acesso, os UUIDs das contas e o conteúdo dos arquivos. O código
 e as migrações ficam no Git. As cópias da campanha ficam em local privado.
+As 12 imagens de teste são descartáveis segundo o mestre. O download delas
+é opcional para desenvolver e testar o novo app.
 
 ## Fazer a cópia
 

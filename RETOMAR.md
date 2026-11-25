@@ -20,8 +20,9 @@ chat. Leia também o README e o histórico Git.
   O banco tem dados de teste. O mestre exportou os cinco CSVs das tabelas
   conhecidas e os anexou em 25/11/2026. Os dados do mestre e da campanha
   ficam fora do Git. A conferência em 25/11/2026 confirmou que as contagens
-  dos CSVs batem com o banco principal. A cópia restaurável das contas e
-  dos arquivos continua pendente. Veja [Backup e restauração](supabase/BACKUP.md).
+  dos CSVs batem com o banco principal. O mestre decidiu pular o download
+  das imagens descartáveis para priorizar o app. O procedimento para
+  dados em uso está em [Backup e restauração](supabase/BACKUP.md).
 - O CSV de metadados em `supabase/inventario-0.16.2.csv` confirma cinco
   tabelas, 38 colunas, 22 assinaturas de funções e nove políticas.
   A lista de políticas mostra os nomes e as operações, sem a lógica das
@@ -107,7 +108,14 @@ A ativação no projeto principal ainda está pendente. O procedimento
 está em [CONTAS.md](supabase/CONTAS.md). O [APK ARM64 deste teste](downloads/RPG-Master-Set-0.17.0-dev.2-android-arm64-teste.apk)
 atualiza o APK de teste anterior com a mesma assinatura.
 
-Depois ficam iniciativa e condições, contagem de fúria, concentração,
+O roteiro privado ganhou criação e edição de texto na versão
+`0.17.0-dev.3`, em Ideias, Cenas e Bastidores. A migração
+`20261125181256_rpg_try_save_gm_note` trata conflitos pela revisão e delega
+ao `rpg_gm_save_visual`. Foi aplicada no projeto de teste.
+Anexar imagens e criar categorias de personagem,
+reino e organização ficam para uma etapa seguinte.
+
+Também ficam iniciativa e condições, contagem de fúria, concentração,
 fichas e VTT. No VTT, o jogador recebe somente as áreas autorizadas,
 inclusive quando inspeciona o tráfego do próprio app.
 
