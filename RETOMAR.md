@@ -97,7 +97,8 @@ projeto de teste. Os testes de integração verificaram o vínculo da
 conta, a aprovação pelo mestre correto, a troca da senha, a revogação
 de sessão e o código de reserva. Testar o fluxo nos aparelhos antes
 de aplicar a migração e a função ao projeto principal. O procedimento
-está em [CONTAS.md](supabase/CONTAS.md).
+está em [CONTAS.md](supabase/CONTAS.md). O [APK ARM64 deste teste](downloads/RPG-Master-Set-0.17.0-dev.2-android-arm64-teste.apk)
+atualiza o APK de teste anterior com a mesma assinatura.
 
 Depois ficam iniciativa e condições, contagem de fúria, concentração,
 fichas e VTT. No VTT, o jogador recebe somente as áreas autorizadas,
