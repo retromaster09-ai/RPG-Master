@@ -14,8 +14,9 @@ insert into public.rpg_members (campaign_id, user_id, role) values
   ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'gm'),
   ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000002', 'player');
 
-insert into public.rpg_notebooks (campaign_id, entries) values
+insert into public.rpg_notebooks (campaign_id, organizer_enabled, entries) values
   ('20000000-0000-4000-8000-000000000001',
+   true,
    '[{"title":"Uma pista","category":"Investigação"},{"title":"Primeira sessão","category":"Sessão"}]');
 
 insert into public.rpg_gm_notes (id, campaign_id, title) values
@@ -44,7 +45,7 @@ begin
       and name like campaign::text || '/%') <> 1 then
     raise exception 'Mestre sem acesso ao objeto privado';
   end if;
-  if jsonb_array_length(public.rpg_read_notebook(campaign)->'entries') is distinct from 2 then
+  if jsonb_array_length(public.rpg_poll_notebook_v3(campaign,-1)->'entries') is distinct from 2 then
     raise exception 'Mestre sem acesso ao caderno e à crônica';
   end if;
 end $$;
@@ -56,7 +57,7 @@ do $$
 declare
   campaign constant uuid := '20000000-0000-4000-8000-000000000001';
 begin
-  if jsonb_array_length(public.rpg_read_notebook(campaign)->'entries') is distinct from 2 then
+  if jsonb_array_length(public.rpg_poll_notebook_v3(campaign,-1)->'entries') is distinct from 2 then
     raise exception 'Jogador sem acesso ao caderno e à crônica';
   end if;
   if exists (select 1 from public.rpg_gm_notes where campaign_id = campaign) then

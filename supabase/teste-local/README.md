@@ -40,3 +40,23 @@ simula apenas os objetos de Auth e Storage usados pelas políticas.
 Esse teste verifica as funções SQL, as regras de leitura de linhas e
 o catálogo de objetos do Storage. O teste das APIs confirma também
 o login, a consulta pelo SDK Flutter e a transferência dos arquivos.
+
+## Executar em um projeto Supabase de teste hospedado
+
+Aplique os scripts de `ordem.txt` em um projeto separado para testes
+e crie duas contas fictícias confirmadas pelo painel de Auth. Guarde
+um JSON em uma pasta privada com os seguintes campos:
+
+- `SUPABASE_TEST_URL` e `SUPABASE_TEST_PROJECT_REF`, com a URL HTTPS e a
+  referência do mesmo projeto de teste.
+- `SUPABASE_TEST_KEY`, com a chave pública do projeto.
+- `SUPABASE_TEST_GM_EMAIL` e `SUPABASE_TEST_GM_PASSWORD`.
+- `SUPABASE_TEST_PLAYER_EMAIL` e `SUPABASE_TEST_PLAYER_PASSWORD`.
+
+```sh
+flutter test supabase/teste-local/leitura_test.dart --dart-define-from-file=/caminho/privado/contas.json
+```
+
+Cada execução cria uma campanha e arquivos fictícios no projeto de
+teste. O teste local continua criando suas próprias contas no banco
+descartável. Guarde o JSON com as credenciais fora do Git.

@@ -10,22 +10,41 @@ void main() {
     defaultValue: 'http://127.0.0.1:54321',
   );
   const key = String.fromEnvironment('SUPABASE_TEST_KEY');
+  const projectRef = String.fromEnvironment('SUPABASE_TEST_PROJECT_REF');
 
   test('mestre e jogador leem somente o conteúdo autorizado', () async {
     final uri = Uri.parse(endpoint);
-    // Este teste cria contas e grava fixtures em um Supabase descartável.
-    expect(uri.scheme, 'http');
-    expect(uri.host, anyOf('127.0.0.1', 'localhost', '::1'));
-    expect(key, isNotEmpty, reason: 'Use a chave pública do Supabase local.');
+    if (projectRef.isEmpty) {
+      expect(uri.scheme, 'http');
+      expect(uri.host, anyOf('127.0.0.1', 'localhost', '::1'));
+    } else {
+      expect(projectRef, matches(RegExp(r'^[a-z0-9]{20}$')));
+      expect(uri.origin, 'https://$projectRef.supabase.co');
+    }
+    expect(key, isNotEmpty, reason: 'Use a chave pública do projeto de teste.');
 
     final gm = SupabaseClient(endpoint, key);
     final player = SupabaseClient(endpoint, key);
     addTearDown(gm.dispose);
     addTearDown(player.dispose);
 
-    final run = DateTime.now().microsecondsSinceEpoch;
-    await _signUp(gm, 'mestre-$run@example.com');
-    await _signUp(player, 'jogador-$run@example.com');
+    if (projectRef.isEmpty) {
+      final run = DateTime.now().microsecondsSinceEpoch;
+      await _signUp(gm, 'mestre-$run@example.com');
+      await _signUp(player, 'jogador-$run@example.com');
+    } else {
+      await _signIn(
+        gm,
+        const String.fromEnvironment('SUPABASE_TEST_GM_EMAIL'),
+        const String.fromEnvironment('SUPABASE_TEST_GM_PASSWORD'),
+      );
+      await _signIn(
+        player,
+        const String.fromEnvironment('SUPABASE_TEST_PLAYER_EMAIL'),
+        const String.fromEnvironment('SUPABASE_TEST_PLAYER_PASSWORD'),
+      );
+      expect(gm.auth.currentUser!.id, isNot(player.auth.currentUser!.id));
+    }
 
     final campaignId = await gm.rpc<String>(
       'rpg_create_campaign',
@@ -156,6 +175,24 @@ Future<void> _signUp(SupabaseClient client, String email) async {
     isNotNull,
     reason: 'Desabilite confirmação de e-mail no Supabase local.',
   );
+}
+
+Future<void> _signIn(
+  SupabaseClient client,
+  String email,
+  String password,
+) async {
+  expect(
+    email,
+    isNotEmpty,
+    reason: 'Use uma conta fictícia do projeto de teste.',
+  );
+  expect(password, isNotEmpty);
+  final auth = await client.auth.signInWithPassword(
+    email: email,
+    password: password,
+  );
+  expect(auth.session, isNotNull);
 }
 
 Map<String, Object> _entry(String id, String category, String title) => {

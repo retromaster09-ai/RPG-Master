@@ -11,8 +11,8 @@ chat. Leia também o README e o histórico Git.
 - O primeiro commit preservou os recursos visuais e as fontes do APK.
   O repositório agora contém a primeira implementação Flutter. O README
   explica como executá-la com o SDK fixado. Em 25/11/2026, a análise,
-  os testes e a compilação web passaram. A compilação Android e o teste
-  com duas contas no Supabase ainda estão pendentes.
+  os testes e a compilação web passaram. A compilação Android ainda
+  está pendente.
 - Os 24 commits do repositório público `retromaster09-ai/RPG-Master`
   contêm APKs, prévias e scripts do Supabase. Não apareceu o projeto
   Flutter original. Os scripts e guias foram preservados em
@@ -26,7 +26,8 @@ chat. Leia também o README e o histórico Git.
   A lista de políticas mostra os nomes e as operações, sem a lógica das
   regras. A função `rpg_app_capabilities` aparece no APK e não aparece no
   inventário fornecido.
-- Nenhuma modificação foi aplicada ao Supabase durante a análise.
+- O Supabase de produção ficou intacto. A migração
+  `20261125123722_rpg_master_legacy_0162` foi aplicada ao projeto de teste.
 
 ## Contrato confirmado
 
@@ -47,27 +48,30 @@ usados pelo PostgREST e os tipos de retorno das cinco funções principais.
 
 ## Validação da área privada
 
-Os nove scripts originais, em ordem histórica, foram aplicados em
-PostgreSQL descartável. O teste `supabase/teste-local/permissoes.sql`
-confirmou que mestre e jogador leem o caderno e que apenas o mestre
-lê as notas e o catálogo dos arquivos privados. O banco de produção
-não foi usado. O teste pelo SDK Flutter e pelas APIs de Auth e Storage
-está preparado em `supabase/teste-local/`; a execução completa ficou
-pendente por falta de espaço no Docker do ambiente Codex.
+Os nove scripts originais foram aplicados na ordem histórica, primeiro
+em PostgreSQL descartável e depois no projeto Supabase de teste.
+`supabase/teste-local/permissoes.sql` verifica notas e catálogo de
+arquivos. O teste pelo SDK Flutter também passou com duas contas
+fictícias. Ele confirmou login, entrada por convite, leitura do caderno
+e das crônicas e bloqueio de notas e downloads privados para o jogador.
+
+O teste encontrou que a RPC antiga `rpg_read_notebook` rejeita cadernos
+depois de habilitada a organização da versão 0.16. O leitor usa
+`rpg_poll_notebook_v3(p_campaign, -1)` para obter uma cópia completa
+e `rpg_gm_list_v2(p_campaign)` para o roteiro do mestre.
+
+As funções legadas com privilégios elevados foram mantidas para
+compatibilidade. Antes de levar futuras mudanças à produção, revise
+as autorizações de cada função tocada e rode os testes novamente.
+[Orientação do Supabase sobre funções privilegiadas](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
 
 ## Prioridades
 
-1. A primeira implementação já usa `rpg_read_notebook(p_campaign)` e
-   `rpg_gm_list_v2(p_campaign)` para leitura, além da lista de campanhas.
-   O export atual tem 98 entradas em array de objetos; 17 têm categoria
-   `Sessão`, das quais quatro estão na lixeira. O leitor usa `category`,
-   `title`, `body`, `answer`, `confidence` e `deletedAt`. O SQL original
-   confirma o envelope `{"entries": [...]}`. Falta testar no servidor.
-2. Testar em ambiente separado a leitura com contas de mestre e jogador.
-   Preservar as migrações do banco e verificar as políticas e a
-   autorização das funções com ambas as contas. Implementar a edição
-   com `p_expected`, `p_epoch` e `p_entries` e testar gravações
-   concorrentes antes de habilitar gravação de conteúdo existente.
+1. Implementar a edição compartilhada com `p_expected`, `p_epoch` e
+   `p_entries`, preservando campos de entradas antigas. Testar duas
+   gravações concorrentes antes de liberar edição de conteúdo existente.
+2. Gerar um APK de teste com o identificador separado e testar num
+   aparelho. A compilação web e os testes Dart já foram verificados.
 3. Adicionar login por nome de usuário e senha preservando o UUID de quem
    já tem conta. Na recuperação, o mestre autorizado aprova o pedido e
    envia o código pelo canal que desejar. O código expira, só pode ser
@@ -79,10 +83,10 @@ pendente por falta de espaço no Docker do ambiente Codex.
 
 ## Guardar e continuar
 
-- Manter um repositório privado sob controle do mestre e registrar nele
-  código, recursos, configurações de exemplo, migrações e instruções
-  de compilação. Ao concluir uma etapa, atualizar este arquivo e enviar
-  o commit ao repositório privado.
+- Registrar código, recursos, configurações de exemplo, migrações e
+  instruções de compilação no GitHub do mestre. O repositório está
+  público por escolha do mestre nesta etapa. Ao concluí-la, atualizar
+  este arquivo e enviar o commit ao repositório.
 - Guardar backups dos dados e dos arquivos do Storage separadamente.
   Guardar credenciais e a chave de assinatura Android em lugar privado.
   Um backup só está verificado depois de uma restauração de teste.

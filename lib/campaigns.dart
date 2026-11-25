@@ -94,8 +94,8 @@ class CampaignRepository {
 
   Future<Notebook> readNotebook(String campaignId) async {
     final data = await _client.rpc<Object?>(
-      'rpg_read_notebook',
-      params: {'p_campaign': campaignId},
+      'rpg_poll_notebook_v3',
+      params: {'p_campaign': campaignId, 'p_known': -1},
     );
     return Notebook.fromRpc(data);
   }

@@ -16,50 +16,49 @@ http.Response jsonResponse(http.Request request, Object data) => http.Response(
 );
 
 void main() {
-  test(
-    'usa p_campaign e separa os registros simulados e as crônicas',
-    () async {
-      final client = SupabaseClient(
-        'https://example.invalid',
-        'sb_publishable_example',
-        httpClient: MockClient((request) async {
-          expect(request.url.path, '/rest/v1/rpc/rpg_read_notebook');
-          expect(jsonDecode(request.body), {'p_campaign': campaign.id});
-          return jsonResponse(request, {
-            'entries': [
-              {
-                'category': 'Investigação',
-                'title': 'Uma pista',
-                'body': '',
-                'answer': 'Mapa encontrado',
-                'confidence': 'Hipótese',
-                'deletedAt': null,
-              },
-              {
-                'category': 'Sessão',
-                'title': 'Primeira sessão',
-                'body': 'Resumo',
-                'confidence': 'Não se aplica',
-              },
-              {
-                'category': 'Sessão',
-                'title': 'Sessão apagada',
-                'deletedAt': '2026-01-01T00:00:00',
-              },
-            ],
-          });
-        }),
-      );
-      addTearDown(client.dispose);
-      final notebook = await CampaignRepository(client)
-          .readNotebook(campaign.id);
-      expect(notebook.records.single.title, 'Uma pista');
-      expect(notebook.records.single.answer, 'Mapa encontrado');
-      expect(notebook.records.single.confidence, 'Hipótese');
-      expect(notebook.sessions.single.title, 'Primeira sessão');
-      expect(notebook.sessions.single.confidence, isNull);
-    },
-  );
+  test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {
+    final client = SupabaseClient(
+      'https://example.invalid',
+      'sb_publishable_example',
+      httpClient: MockClient((request) async {
+        expect(request.url.path, '/rest/v1/rpc/rpg_poll_notebook_v3');
+        expect(jsonDecode(request.body), {
+          'p_campaign': campaign.id,
+          'p_known': -1,
+        });
+        return jsonResponse(request, {
+          'entries': [
+            {
+              'category': 'Investigação',
+              'title': 'Uma pista',
+              'body': '',
+              'answer': 'Mapa encontrado',
+              'confidence': 'Hipótese',
+              'deletedAt': null,
+            },
+            {
+              'category': 'Sessão',
+              'title': 'Primeira sessão',
+              'body': 'Resumo',
+              'confidence': 'Não se aplica',
+            },
+            {
+              'category': 'Sessão',
+              'title': 'Sessão apagada',
+              'deletedAt': '2026-01-01T00:00:00',
+            },
+          ],
+        });
+      }),
+    );
+    addTearDown(client.dispose);
+    final notebook = await CampaignRepository(client).readNotebook(campaign.id);
+    expect(notebook.records.single.title, 'Uma pista');
+    expect(notebook.records.single.answer, 'Mapa encontrado');
+    expect(notebook.records.single.confidence, 'Hipótese');
+    expect(notebook.sessions.single.title, 'Primeira sessão');
+    expect(notebook.sessions.single.confidence, isNull);
+  });
 
   test('uma sessão de jogador não dispara a consulta privada', () async {
     final client = SupabaseClient(

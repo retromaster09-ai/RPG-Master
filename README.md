@@ -32,16 +32,15 @@ configure a assinatura de distribuição e guarde a chave em local privado.
 
 A primeira implementação usa o login legado para permitir entrada com
 as contas existentes. Ela lista campanhas e tenta ler o caderno, as
-crônicas e as notas do mestre. A leitura do roteiro só é solicitada
-pelo aplicativo para o criador da campanha. O Supabase ainda precisa
-ser testado com duas contas reais em ambiente de teste para confirmar
-que bloqueia a leitura e as imagens para jogadores.
+crônicas e as notas do mestre. Em um Supabase separado, duas contas
+fictícias confirmaram que a API bloqueia a leitura e os downloads
+privados para o jogador, enquanto o mestre mantém acesso ao roteiro.
 
 Essa versão não grava no banco. O formato dos objetos em `entries` foi
 confirmado com os CSVs da campanha. O leitor passou nos testes com
 respostas simuladas e processou o caderno atual e suas 20 versões
-exportadas. O SQL original confirma o envelope da RPC. O fluxo
-com contas reais ainda precisa ser validado no projeto de teste. O login com nome de usuário, a
+exportadas. A leitura usa a função v3 para abrir os cadernos com
+organização e lixeira da versão 0.16. O login com nome de usuário, a
 recuperação por código, a edição colaborativa e os recursos de jogo
 continuam pendentes.
 
