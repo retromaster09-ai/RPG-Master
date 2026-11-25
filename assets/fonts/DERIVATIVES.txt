@@ -1,0 +1,4 @@
+RpgScript is derived from Courgette, RpgMono from Share Tech Mono.
+Renamed OFL families with synthetic vector weight/slant variants.
+Original copyright and OFL license files are included alongside the fonts.
+Generator: scripts/make_font_variants.py (fontTools).

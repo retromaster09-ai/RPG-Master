@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+/backups/
+*.jks
+*.keystore
+key.properties
+.dart_tool/
+build/
+
+.flutter-plugins-dependencies
+*.iml
