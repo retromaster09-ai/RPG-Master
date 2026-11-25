@@ -45,20 +45,18 @@ o login, a consulta pelo SDK Flutter e a transferência dos arquivos.
 ## Executar em um projeto Supabase de teste hospedado
 
 Aplique os scripts de `ordem.txt` e as migrações em
-`supabase/migrations/` em um projeto separado para testes. Crie duas
-contas fictícias confirmadas pelo painel de Auth. Guarde
-um JSON em uma pasta privada com os seguintes campos:
+`supabase/migrations/` em um projeto separado para testes. Implante a
+função `rpg-account` conforme [CONTAS.md](../CONTAS.md). Guarde
+um JSON com os seguintes campos:
 
 - `SUPABASE_TEST_URL` e `SUPABASE_TEST_PROJECT_REF`, com a URL HTTPS e a
   referência do mesmo projeto de teste.
 - `SUPABASE_TEST_KEY`, com a chave pública do projeto.
-- `SUPABASE_TEST_GM_EMAIL` e `SUPABASE_TEST_GM_PASSWORD`.
-- `SUPABASE_TEST_PLAYER_EMAIL` e `SUPABASE_TEST_PLAYER_PASSWORD`.
 
 ```sh
 flutter test supabase/teste-local/leitura_test.dart --dart-define-from-file=/caminho/privado/contas.json
 ```
 
-Cada execução cria uma campanha e arquivos fictícios no projeto de
-teste. O teste local continua criando suas próprias contas no banco
-descartável. Guarde o JSON com as credenciais fora do Git.
+Cada execução cadastra duas contas fictícias e cria uma campanha e arquivos
+no projeto de teste. O teste local continua criando suas próprias contas no
+banco descartável.

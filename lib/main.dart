@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'account_screens.dart';
 import 'accounts.dart';
+import 'campaign_access.dart';
 import 'campaigns.dart';
 import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
@@ -124,7 +125,9 @@ class _SignInScreenState extends State<SignInScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   late final _accounts = AccountService(widget.client);
+  final _passwordAgain = TextEditingController();
   bool _legacy = false;
+  bool _registering = false;
   bool _recovering = false;
   bool _busy = false;
   String? _error;
@@ -133,6 +136,7 @@ class _SignInScreenState extends State<SignInScreen> {
   void dispose() {
     _identifier.dispose();
     _password.dispose();
+    _passwordAgain.dispose();
     super.dispose();
   }
 
@@ -149,6 +153,11 @@ class _SignInScreenState extends State<SignInScreen> {
           password: _password.text,
         );
       } else {
+        if (_registering) {
+          await _accounts.register(_identifier.text.trim(), _password.text);
+          if (!mounted) return;
+          setState(() => _registering = false);
+        }
         await _accounts.signIn(_identifier.text.trim(), _password.text);
       }
     } on Exception catch (error) {
@@ -231,38 +240,82 @@ class _SignInScreenState extends State<SignInScreen> {
                         decoration: const InputDecoration(labelText: 'Senha'),
                         obscureText: true,
                         autofillHints: const [AutofillHints.password],
-                        onFieldSubmitted: (_) => _signIn(),
-                        validator: (text) => text == null || text.isEmpty
-                            ? 'Informe sua senha.'
-                            : null,
+                        onFieldSubmitted: _registering
+                            ? null
+                            : (_) => _signIn(),
+                        validator: (text) {
+                          if (text == null || text.isEmpty) {
+                            return 'Informe sua senha.';
+                          }
+                          if (_registering && text.length < 8) {
+                            return 'Use pelo menos 8 caracteres.';
+                          }
+                          return null;
+                        },
                       ),
+                      if (_registering) ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _passwordAgain,
+                          enabled: !_busy,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Confirmar senha',
+                          ),
+                          onFieldSubmitted: (_) => _signIn(),
+                          validator: (text) => text == _password.text
+                              ? null
+                              : 'As senhas precisam ser iguais.',
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       if (_error case final error?) Text(error),
                       FilledButton(
                         onPressed: _busy ? null : _signIn,
-                        child: Text(_busy ? 'Entrando…' : 'Entrar'),
-                      ),
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() => _recovering = true),
-                        child: const Text('Esqueci minha senha'),
-                      ),
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() {
-                                _legacy = !_legacy;
-                                _identifier.clear();
-                                _password.clear();
-                                _error = null;
-                              }),
                         child: Text(
-                          _legacy
-                              ? 'Usar nome de usuário'
-                              : 'Primeiro acesso com a conta antiga',
+                          _busy
+                              ? 'Aguarde…'
+                              : _registering
+                              ? 'Criar conta'
+                              : 'Entrar',
                         ),
                       ),
+                      if (_registering || !_legacy)
+                        TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () => setState(() {
+                                  _registering = !_registering;
+                                  _passwordAgain.clear();
+                                  _error = null;
+                                }),
+                          child: Text(
+                            _registering ? 'Já tenho conta' : 'Criar uma conta',
+                          ),
+                        ),
+                      if (!_registering) ...[
+                        TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () => setState(() => _recovering = true),
+                          child: const Text('Esqueci minha senha'),
+                        ),
+                        TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () => setState(() {
+                                  _legacy = !_legacy;
+                                  _identifier.clear();
+                                  _password.clear();
+                                  _error = null;
+                                }),
+                          child: Text(
+                            _legacy
+                                ? 'Usar nome de usuário'
+                                : 'Primeiro acesso com a conta antiga',
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -290,6 +343,45 @@ class _CampaignScreenState extends State<CampaignScreen> {
   late Future<List<Campaign>> _campaigns = _repository.list();
   Campaign? _selected;
   bool _accountOpen = false;
+
+  Future<void> _createCampaign() async {
+    final id = newNotebookRecordId();
+    final name = await askCampaignText(
+      context,
+      title: 'Criar campanha',
+      label: 'Nome da campanha',
+      action: 'Criar',
+      validate: (name) => name.isEmpty || name.runes.length > 100
+          ? 'Use de 1 a 100 caracteres.'
+          : null,
+      submit: (name) => _repository.createCampaign(id, name),
+    );
+    if (!mounted || name == null) return;
+    setState(() {
+      _campaigns = _repository.list();
+      _selected = Campaign(id: id, name: name, ownerId: widget.userId);
+    });
+  }
+
+  Future<void> _joinCampaign() async {
+    final joined = await askCampaignText(
+      context,
+      title: 'Entrar por código',
+      label: 'Código ou convite',
+      action: 'Entrar na campanha',
+      validate: (code) =>
+          campaignCodePattern.hasMatch(code) ||
+              campaignInvitePattern.hasMatch(code)
+          ? null
+          : 'Confira o código recebido do mestre.',
+      submit: _repository.joinCampaign,
+    );
+    if (!mounted || joined == null) return;
+    setState(() => _campaigns = _repository.list());
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Campanha adicionada às suas mesas.')),
+    );
+  }
 
   Future<void> _signOut() async {
     try {
@@ -345,39 +437,71 @@ class _CampaignScreenState extends State<CampaignScreen> {
           ),
         ],
       ),
-      body: FutureBuilder(
-        future: _campaigns,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text('Não foi possível carregar suas campanhas.'),
-            );
-          }
-          final campaigns = snapshot.data!;
-          if (campaigns.isEmpty) {
-            return const Center(child: Text('Nenhuma campanha disponível.'));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: campaigns.length,
-            itemBuilder: (context, index) {
-              final campaign = campaigns[index];
-              return Card(
-                child: ListTile(
-                  title: Text(campaign.name),
-                  subtitle: Text(
-                    campaign.ownerId == widget.userId ? 'Mestre' : 'Jogador',
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _createCampaign,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Criar campanha'),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => setState(() => _selected = campaign),
-                ),
-              );
-            },
-          );
-        },
+                  OutlinedButton.icon(
+                    onPressed: _joinCampaign,
+                    icon: const Icon(Icons.key_outlined),
+                    label: const Text('Entrar por código'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder(
+              future: _campaigns,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Não foi possível carregar suas campanhas.'),
+                  );
+                }
+                final campaigns = snapshot.data!;
+                if (campaigns.isEmpty) {
+                  return const Center(
+                    child: Text('Nenhuma campanha disponível.'),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: campaigns.length,
+                  itemBuilder: (context, index) {
+                    final campaign = campaigns[index];
+                    return Card(
+                      child: ListTile(
+                        title: Text(campaign.name),
+                        subtitle: Text(
+                          campaign.ownerId == widget.userId
+                              ? 'Mestre'
+                              : 'Jogador',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => setState(() => _selected = campaign),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -646,6 +770,18 @@ class _NotebookScreenState extends State<NotebookScreen> {
           leading: BackButton(onPressed: widget.onBack),
           title: Text(widget.campaign.name),
           actions: [
+            if (widget.isOwner)
+              IconButton(
+                icon: const Icon(Icons.group_outlined),
+                tooltip: 'Acesso e participantes',
+                onPressed: () => setState(() {
+                  _editor = CampaignAccessScreen(
+                    campaign: widget.campaign,
+                    repository: widget.repository,
+                    onBack: () => setState(() => _editor = null),
+                  );
+                }),
+              ),
             IconButton(
               onPressed: _refresh,
               icon: const Icon(Icons.refresh),

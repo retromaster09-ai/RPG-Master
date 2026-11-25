@@ -94,6 +94,35 @@ Deno.serve(async (req) => {
   const username = field(input, "username").trim().toLowerCase();
   const password = field(input, "password");
   try {
+    if (action === "register") {
+      if (!usernamePattern.test(username)) return json({ error: "invalid_username" }, 400);
+      if (password.length < 8 || encoder.encode(password).length > 72) {
+        return json({ error: "invalid_password" }, 400);
+      }
+      const slot = await upstream("/rest/v1/rpc/rpg_take_registration_slot", serviceKey, {});
+      if (!slot.ok) throw new Error("Registration limit unavailable");
+      if (await slot.json() !== true) return json({ error: "registration_limited" }, 429);
+
+      const target = await account("target", null, { username });
+      if (target.user_id) return json({ error: "username_taken" }, 409);
+      const created = await upstream("/auth/v1/admin/users", serviceKey, {
+        email: `rpg-${crypto.randomUUID()}@accounts.rpgmaster.invalid`,
+        email_confirm: true,
+        password,
+        app_metadata: { rpg_registration_username: username },
+      });
+      if (!created.ok) {
+        const current = await account("target", null, { username });
+        if (current.user_id) return json({ error: "username_taken" }, 409);
+        return json({ error: "registration_failed" }, 502);
+      }
+      const user = await created.json();
+      const profile = await account("target", null, { username });
+      if (typeof user.id !== "string" || profile.user_id !== user.id) {
+        return json({ error: "registration_failed" }, 502);
+      }
+      return json({ ok: true }, 201);
+    }
     if (action === "login") {
       if (!usernamePattern.test(username) || !password || encoder.encode(password).length > 1024) {
         return json({ error: "invalid_credentials" }, 401);

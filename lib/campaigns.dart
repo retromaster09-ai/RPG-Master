@@ -18,6 +18,18 @@ class Campaign {
   final String ownerId;
 }
 
+typedef CampaignMember = ({String name, bool isOwner});
+typedef CampaignAccess = ({bool codeEnabled, List<CampaignMember> members});
+
+final campaignCodePattern = RegExp(r'^[a-zA-Z0-9_-]{10,48}$');
+final campaignInvitePattern = RegExp(r'^[a-fA-F0-9]{64}$');
+
+class CampaignJoinException implements Exception {
+  const CampaignJoinException(this.status);
+
+  final String status;
+}
+
 class CampaignRecord {
   const CampaignRecord(
     this.title,
@@ -264,6 +276,56 @@ class CampaignRepository {
         .select('id, name, created_by')
         .order('name');
     return rows.map(Campaign.fromJson).toList(growable: false);
+  }
+
+  Future<void> createCampaign(String id, String name) async {
+    await _client.rpc<String>(
+      'rpg_create_campaign_with_id',
+      params: {'p_id': id, 'p_name': name},
+    );
+  }
+
+  Future<void> joinCampaign(String code) async {
+    if (campaignInvitePattern.hasMatch(code)) {
+      await _client.rpc<String>('rpg_join_campaign', params: {'p_token': code});
+      return;
+    }
+    final result = await _client.rpc<String>(
+      'rpg_join_campaign_code',
+      params: {'p_code': code},
+    );
+    if (result != 'joined') throw CampaignJoinException(result);
+  }
+
+  Future<CampaignAccess> readAccess(Campaign campaign) async {
+    _requireCampaignOwner(campaign);
+    final data = await _client.rpc<Map<String, dynamic>>(
+      'rpg_campaign_access',
+      params: {'p_campaign': campaign.id},
+    );
+    return (
+      codeEnabled: data['codeEnabled'] as bool,
+      members: [
+        for (final member in data['members'] as List)
+          (name: member['name'] as String, isOwner: member['role'] == 'gm'),
+      ],
+    );
+  }
+
+  Future<void> setCampaignCode(Campaign campaign, String? code) async {
+    _requireCampaignOwner(campaign);
+    await _client.rpc<bool>(
+      'rpg_set_campaign_code',
+      params: {'p_campaign': campaign.id, 'p_code': code},
+    );
+  }
+
+  Future<String> createCampaignInvite(Campaign campaign) {
+    _requireCampaignOwner(campaign);
+    return _client.rpc<String>(
+      'rpg_create_invite',
+      params: {'p_campaign': campaign.id},
+    );
   }
 
   Future<Notebook> readNotebook(String campaignId) async {

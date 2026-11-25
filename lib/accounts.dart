@@ -29,6 +29,10 @@ class AccountService {
       accessToken: result['access_token'] as String,
     );
   }
+
+  Future<void> register(String username, String password) async {
+    await call('register', {'username': username, 'password': password});
+  }
 }
 
 class AccountException implements Exception {
@@ -47,6 +51,10 @@ String accountMessage(Object error, String fallback) {
     'invalid_credentials' => 'Confira o nome de usuário e a senha.',
     'invalid_code' => 'Código inválido, expirado ou já usado.',
     'invalid_password' => 'Use uma senha de pelo menos 8 caracteres.',
+    'invalid_username' =>
+      'Use de 3 a 24 letras sem acento, números, ponto, hífen ou sublinhado.',
+    'registration_limited' =>
+      'Muitas tentativas de cadastro. Tente de novo em 15 minutos.',
     'reset_failed' => 'A senha não pôde ser alterada. Solicite um novo código.',
     'username_taken' => 'Esse nome de usuário já está em uso.',
     'invalid_request' => 'Confira os campos e tente de novo.',

@@ -70,8 +70,10 @@ as autorizações de cada função tocada e rode os testes novamente.
 ## Prioridades
 
 O [levantamento das funções do app anterior](PARIDADE.md) registra o que
-falta na reconstrução e a ordem proposta. A primeira etapa é completar
-criação de campanhas e entrada de jogadores pelo próprio app.
+falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
+cadastro por usuário e senha, criação de mesa, entrada por código ou convite
+e consulta de participantes. A próxima etapa é o uso diário do caderno,
+começando por proteção de rascunhos e sincronização.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas
@@ -111,6 +113,14 @@ do código de reserva também funcionou no aparelho.
 A ativação no projeto principal ainda está pendente. O procedimento
 está em [CONTAS.md](supabase/CONTAS.md). O [APK ARM64 deste teste](downloads/RPG-Master-Set-0.17.0-dev.2-android-arm64-teste.apk)
 atualiza o APK de teste anterior com a mesma assinatura.
+
+No teste, o cadastro e as novas telas de campanha usam as migrações
+`20261125210922_rpg_registration_and_campaign_access` e
+`20261125211411_rpg_register_profile_on_auth_metadata`, e a versão 3 da
+função `rpg-account`. O cadastro cria um identificador interno de Auth e o associa
+ao nome de usuário na mesma transação. A tela de participantes usa o nome de
+usuário quando disponível. As ações de gerenciamento ficam dentro da mesa,
+reservadas ao mestre e disponíveis com a sessão já autenticada.
 
 O roteiro privado ganhou criação e edição de texto na versão
 `0.17.0-dev.3`, em Ideias, Cenas e Bastidores. A migração

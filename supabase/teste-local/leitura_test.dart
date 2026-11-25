@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rpg_master_set/accounts.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -28,45 +29,84 @@ void main() {
     addTearDown(gm.dispose);
     addTearDown(player.dispose);
 
+    final run = DateTime.now().microsecondsSinceEpoch;
+    final gmName = 'mestre-$run';
+    final playerName = 'jog-$run';
     if (projectRef.isEmpty) {
-      final run = DateTime.now().microsecondsSinceEpoch;
-      await _signUp(gm, 'mestre-$run@example.com');
-      await _signUp(player, 'jogador-$run@example.com');
+      await _signUp(gm, '$gmName@example.com');
+      await _signUp(player, '$playerName@example.com');
     } else {
-      await _signIn(
-        gm,
-        const String.fromEnvironment('SUPABASE_TEST_GM_EMAIL'),
-        const String.fromEnvironment('SUPABASE_TEST_GM_PASSWORD'),
+      final gmAccounts = AccountService(gm);
+      final playerAccounts = AccountService(player);
+      final gmPassword = 'Senha-teste-${newNotebookRecordId()}';
+      final playerPassword = 'Senha-teste-${newNotebookRecordId()}';
+      await gmAccounts.register(gmName, gmPassword);
+      await playerAccounts.register(playerName, playerPassword);
+      await expectLater(
+        playerAccounts.register(gmName, playerPassword),
+        throwsA(
+          isA<FunctionException>().having((e) => e.status, 'status', 409),
+        ),
       );
-      await _signIn(
-        player,
-        const String.fromEnvironment('SUPABASE_TEST_PLAYER_EMAIL'),
-        const String.fromEnvironment('SUPABASE_TEST_PLAYER_PASSWORD'),
-      );
+      await gmAccounts.signIn(gmName, gmPassword);
+      await playerAccounts.signIn(playerName, playerPassword);
+      expect((await gmAccounts.call('settings'))['username'], gmName);
+      expect((await playerAccounts.call('settings'))['username'], playerName);
       expect(gm.auth.currentUser!.id, isNot(player.auth.currentUser!.id));
     }
 
-    final campaignId = await gm.rpc<String>(
-      'rpg_create_campaign',
-      params: {'p_name': 'Campanha fictícia'},
-    );
-    final memberArgs = {'p_campaign': campaignId};
-
+    final campaignId = newNotebookRecordId();
+    final gmRepo = CampaignRepository(gm);
     final playerRepo = CampaignRepository(player);
+    await gmRepo.createCampaign(campaignId, 'Campanha fictícia');
+    await gmRepo.createCampaign(campaignId, 'Campanha fictícia');
+    final memberArgs = {'p_campaign': campaignId};
+    final campaign = (await gmRepo.list()).singleWhere(
+      (c) => c.id == campaignId,
+    );
     expect((await playerRepo.list()).where((c) => c.id == campaignId), isEmpty);
     await expectLater(
       playerRepo.readNotebook(campaignId),
       throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
     );
-
-    final invitation = await gm.rpc<String>(
-      'rpg_create_invite',
-      params: memberArgs,
+    final code = 'mesa-${campaignId.substring(0, 24)}';
+    expect((await gmRepo.readAccess(campaign)).codeEnabled, isFalse);
+    await gmRepo.setCampaignCode(campaign, code);
+    await playerRepo.joinCampaign(code.toUpperCase());
+    final access = await gmRepo.readAccess(campaign);
+    expect(access.codeEnabled, isTrue);
+    expect(access.members.map((m) => m.isOwner), [true, false]);
+    if (projectRef.isNotEmpty) {
+      expect(access.members.map((m) => m.name), [gmName, playerName]);
+    }
+    await expectLater(
+      player.rpc<Map<String, dynamic>>(
+        'rpg_campaign_access',
+        params: memberArgs,
+      ),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
     );
-    await player.rpc<String>(
-      'rpg_join_campaign',
-      params: {'p_token': invitation},
+    await expectLater(
+      player.rpc<bool>(
+        'rpg_set_campaign_code',
+        params: {...memberArgs, 'p_code': null},
+      ),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
     );
+    final invitation = await gmRepo.createCampaignInvite(campaign);
+    await playerRepo.joinCampaign(invitation);
+    await gmRepo.setCampaignCode(campaign, null);
+    await expectLater(
+      playerRepo.joinCampaign(code),
+      throwsA(
+        isA<CampaignJoinException>().having(
+          (e) => e.status,
+          'status',
+          'invalid',
+        ),
+      ),
+    );
+    expect((await gmRepo.readAccess(campaign)).codeEnabled, isFalse);
 
     await gm.rpc<int>(
       'rpg_save_notebook_v3',
@@ -107,10 +147,6 @@ void main() {
       },
     );
 
-    final gmRepo = CampaignRepository(gm);
-    final campaign = (await gmRepo.list()).singleWhere(
-      (c) => c.id == campaignId,
-    );
     expect(campaign.ownerId, gm.auth.currentUser!.id);
     expect((await playerRepo.list()).map((c) => c.id), contains(campaignId));
 
@@ -338,24 +374,6 @@ Future<void> _signUp(SupabaseClient client, String email) async {
     isNotNull,
     reason: 'Desabilite confirmação de e-mail no Supabase local.',
   );
-}
-
-Future<void> _signIn(
-  SupabaseClient client,
-  String email,
-  String password,
-) async {
-  expect(
-    email,
-    isNotEmpty,
-    reason: 'Use uma conta fictícia do projeto de teste.',
-  );
-  expect(password, isNotEmpty);
-  final auth = await client.auth.signInWithPassword(
-    email: email,
-    password: password,
-  );
-  expect(auth.session, isNotNull);
 }
 
 Map<String, Object> _entry(String id, String category, String title) => {

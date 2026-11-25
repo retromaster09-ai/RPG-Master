@@ -32,6 +32,19 @@ e os mesmos parâmetros `--dart-define` do projeto Supabase de teste.
 O APK usa assinatura de teste. Antes de publicar uma versão de
 distribuição, configure sua assinatura e guarde a chave em local privado.
 
+## Montar uma mesa no app
+
+Uma pessoa nova entra por **Criar uma conta**, com nome de usuário e senha.
+Em **Suas campanhas**, ela pode criar uma mesa ou entrar com um código ou
+convite recebido. Na mesa, **Acesso e participantes** fica disponível ao
+criador. Ali ele define ou troca o código compartilhado, gera convites
+individuais e consulta a lista de pessoas. O código compartilhado só aparece
+para copiar depois de ser definido. O convite individual vale sete dias.
+
+O papel é definido por campanha. O criador vê **Mestre** e **Acesso e
+participantes**. Quem entra por código ou convite recebe o papel de jogador.
+As duas áreas do mestre usam a sessão atual e as permissões do servidor.
+
 ## Estado da reconstrução
 
 A tela de entrada usa nome de usuário e senha. Para vincular uma conta

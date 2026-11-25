@@ -6,6 +6,9 @@ o [histórico de versões](downloads/LEIA-ME.md) e os
 código do `0.17.0-dev.4`. Os itens abaixo registram as diferenças confirmadas
 e servem como roteiro para retomar o trabalho.
 
+O `0.17.0-dev.5` completa a primeira etapa da ordem proposta. Para o uso
+diário, a próxima etapa é sincronização e proteção de rascunhos.
+
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |
 | Conta | Cadastro e login por e-mail. Recuperação por e-mail em preparação. | Login por usuário, vínculo de conta antiga, recuperação por código do mestre e código de reserva. Falta o cadastro de novas contas na interface. |
@@ -24,7 +27,7 @@ e servem como roteiro para retomar o trabalho.
 1. **Montar uma mesa inteira pelo app.** Cadastrar uma conta nova, criar uma
    campanha, gerar um código, entrar com uma conta convidada e consultar os
    participantes como mestre. Validar os dois papéis sem preparação manual
-   de campanha no painel.
+   de campanha no painel. Implementado no `0.17.0-dev.5`.
 2. **Recuperar o uso diário do caderno.** Priorizar segurança do rascunho e
    sincronização após reconexão, busca e filtros, datas de crônicas,
    organização e lixeira. Usar duas contas exclusivas dos testes automáticos.
