@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:diacritic/diacritic.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'account_screens.dart';
 import 'accounts.dart';
 import 'campaign_access.dart';
+import 'campaign_cover.dart';
 import 'campaigns.dart';
 import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
@@ -420,6 +422,16 @@ class _CampaignScreenState extends State<CampaignScreen> {
     );
   }
 
+  Future<void> _editCover(Campaign campaign) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          CampaignCoverDialog(campaign: campaign, repository: _repository),
+    );
+    if (mounted) setState(() => _campaigns = _loadCampaigns());
+  }
+
   Future<void> _signOut() async {
     try {
       await widget.client.auth.signOut();
@@ -518,24 +530,28 @@ class _CampaignScreenState extends State<CampaignScreen> {
                     child: Text('Nenhuma campanha disponível.'),
                   );
                 }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: campaigns.length,
-                  itemBuilder: (context, index) {
-                    final campaign = campaigns[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text(campaign.name),
-                        subtitle: Text(
-                          campaign.ownerId == widget.userId
-                              ? 'Mestre'
-                              : 'Jogador',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => setState(() => _selected = campaign),
-                      ),
-                    );
-                  },
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+                      itemCount: campaigns.length,
+                      itemBuilder: (context, index) {
+                        final campaign = campaigns[index];
+                        final isOwner = campaign.ownerId == widget.userId;
+                        return CampaignCard(
+                          key: ValueKey(campaign.id),
+                          campaign: campaign,
+                          repository: _repository,
+                          isOwner: isOwner,
+                          onOpen: () => setState(() => _selected = campaign),
+                          onEditCover: isOwner
+                              ? () => _editCover(campaign)
+                              : null,
+                        );
+                      },
+                    ),
+                  ),
                 );
               },
             ),
@@ -574,6 +590,8 @@ class _NotebookScreenState extends State<NotebookScreen>
     with WidgetsBindingObserver {
   late final NotebookSync _sync;
   Timer? _poll;
+  final _search = TextEditingController();
+  String? _category;
 
   @override
   void initState() {
@@ -608,6 +626,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   @override
   void dispose() {
     _poll?.cancel();
+    _search.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _sync.dispose();
     super.dispose();
@@ -618,7 +637,10 @@ class _NotebookScreenState extends State<NotebookScreen>
   Widget? _editor;
 
   void _selectTab(_NotebookTab tab) {
+    if (tab == _tab) return;
     setState(() {
+      _search.clear();
+      _category = null;
       _tab = tab;
       if (_tab == _NotebookTab.private) {
         _privateNotes = widget.repository.readGmNotes(widget.campaign);
@@ -770,11 +792,47 @@ class _NotebookScreenState extends State<NotebookScreen>
       );
     }
     final isSession = _tab == _NotebookTab.sessions;
-    final entries = isSession ? notebook.sessions : notebook.records;
+    final allEntries = isSession ? notebook.sessions : notebook.records;
+    final allDrafts = _sync.drafts
+        .where((draft) => draft.isSession == isSession)
+        .toList();
+    final categories = {
+      ?_category,
+      for (final record in allEntries) ?record.category,
+      for (final draft in allDrafts) draft.category,
+    }.toList()..sort();
+    final terms = removeDiacritics(_search.text.trim().toLowerCase())
+        .split(RegExp(r'\s+'))
+        .where((term) => term.isNotEmpty);
+    final searching = terms.isNotEmpty || _category != null;
+
+    bool matches(NotebookText text, String? category) {
+      if (_category != null && category != _category) return false;
+      if (terms.isEmpty) return true;
+      final content = removeDiacritics(
+        [
+          text.title,
+          text.body,
+          text.answer,
+          text.confidence,
+          category ?? '',
+        ].join(' ').toLowerCase(),
+      );
+      return terms.every(content.contains);
+    }
+
     final drafts = {
-      for (final draft in _sync.drafts)
-        if (draft.isSession == isSession) draft.id: draft,
+      for (final draft in allDrafts)
+        if (matches(draft.text, draft.category)) draft.id: draft,
     };
+    final draftIds = allDrafts.map((draft) => draft.id).toSet();
+    final entries = allEntries
+        .where(
+          (record) =>
+              !draftIds.contains(record.id) &&
+              matches(record.text, record.category),
+        )
+        .toList(growable: false);
     final header = <Widget>[
       if (_sync.localError)
         const ListTile(
@@ -794,6 +852,39 @@ class _NotebookScreenState extends State<NotebookScreen>
           label: Text(isSession ? 'Nova crônica' : 'Novo registro'),
         ),
       ),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: TextField(
+          controller: _search,
+          decoration: InputDecoration(
+            labelText: isSession ? 'Buscar crônicas' : 'Buscar no caderno',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: () => setState(_search.clear),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Limpar busca',
+                  ),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ),
+      if (!isSession && categories.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DropdownButton<String>(
+            value: _category,
+            hint: const Text('Todas as categorias'),
+            isExpanded: true,
+            items: [
+              const DropdownMenuItem(child: Text('Todas as categorias')),
+              for (final category in categories)
+                DropdownMenuItem(value: category, child: Text(category)),
+            ],
+            onChanged: (category) => setState(() => _category = category),
+          ),
+        ),
       for (final draft in drafts.values)
         Card(
           child: ListTile(
@@ -820,13 +911,18 @@ class _NotebookScreenState extends State<NotebookScreen>
       itemBuilder: (context, index) {
         if (index < header.length) return header[index];
         if (entries.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: Text('Nenhum registro nesta aba.')),
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: Text(
+                searching
+                    ? 'Nenhum resultado para esta busca.'
+                    : 'Nenhum registro nesta aba.',
+              ),
+            ),
           );
         }
         final record = entries[index - header.length];
-        final draft = drafts[record.id];
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -841,11 +937,9 @@ class _NotebookScreenState extends State<NotebookScreen>
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    if (record.id != null &&
-                        draft?.status != DraftStatus.queued)
+                    if (record.id != null)
                       IconButton(
-                        onPressed: () =>
-                            _edit(notebook, record: record, draft: draft),
+                        onPressed: () => _edit(notebook, record: record),
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Editar',
                       ),

@@ -45,6 +45,11 @@ O papel é definido por campanha. O criador vê **Mestre** e **Acesso e
 participantes**. Quem entra por código ou convite recebe o papel de jogador.
 As duas áreas do mestre usam a sessão atual e as permissões do servidor.
 
+Na lista **Suas campanhas**, o mestre pode tocar no ícone de imagem
+no cartão para escolher a capa e ajustar o enquadramento. A imagem
+salva é compartilhada com os membros da campanha pelo Storage autenticado.
+O cartão usa a ilustração original do app quando a campanha está sem capa.
+
 ## Estado da reconstrução
 
 A tela de entrada usa nome de usuário e senha. Para vincular uma conta
@@ -69,6 +74,9 @@ rascunhos locais enquanto você digita. **Salvar** coloca a edição em
 **Aguardando envio**. O app verifica o servidor enquanto a campanha está
 aberta e ao voltar para ela. Se outra pessoa alterou o mesmo campo, a edição
 fica em **Revisar edição** com o texto preservado. A aba Mestre permanece online.
+As buscas do **Caderno** e das **Crônicas** encontram palavras com ou sem
+acentos no título, no texto e nas respostas, inclusive na cópia local.
+O **Caderno** também pode ser filtrado por categoria.
 
 Na aba **Mestre**, o criador da campanha pode criar e editar notas
 privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão

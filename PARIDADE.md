@@ -8,8 +8,9 @@ e servem como roteiro para retomar o trabalho.
 
 O `0.17.0-dev.5` completa a primeira etapa da ordem proposta. Para o uso
 diário, a versão `0.17.0-dev.6` recupera a cópia local, os rascunhos e a
-fila de envio dos textos compartilhados. Busca, filtros, datas e organização
-seguem na fila de recuperação de funções.
+fila de envio dos textos compartilhados. A versão `0.17.0-dev.7` recupera as
+capas de campanha e a busca no caderno e nas crônicas, com filtro de categoria
+no caderno. Datas e organização continuam pendentes.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

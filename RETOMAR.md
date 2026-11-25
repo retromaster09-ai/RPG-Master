@@ -72,8 +72,8 @@ as autorizações de cada função tocada e rode os testes novamente.
 O [levantamento das funções do app anterior](PARIDADE.md) registra o que
 falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
 cadastro por usuário e senha, criação de mesa, entrada por código ou convite
-e consulta de participantes. A próxima etapa é o uso diário do caderno,
-com busca, filtros, datas e organização depois da proteção de rascunhos.
+e consulta de participantes. A próxima etapa do uso diário do caderno
+inclui datas das crônicas, ordenação e lixeira.
 
 O `0.17.0-dev.6` guarda localmente a lista de campanhas, a última revisão
 do caderno compartilhado e os rascunhos de texto. A chave é separada por
@@ -86,6 +86,15 @@ Uma entrada em envio fica disponível para editar após confirmação ou conflit
 Rascunhos de uma geração anterior a um reset ficam para revisão. A aba Mestre
 continua online e usa apenas a sessão existente. O recurso usa as RPCs já
 implantadas no ambiente de teste.
+
+O `0.17.0-dev.7` recupera os cartões com capa de campanha e usa a arte
+original dos aventureiros como padrão. Somente o mestre salva ou troca
+a capa. Os membros usam o Storage autenticado do bucket `rpg-notes`.
+Já foram preservados o caminho, a revisão e o enquadramento legados.
+A migração `20261125220138_rpg_try_set_campaign_cover`, aplicada no projeto
+de teste, permite tratar conflitos de revisão na troca de capa. Também
+entraram busca por texto no caderno e nas crônicas e filtro por categoria
+no caderno. Funcionam sobre as notas e os rascunhos no aparelho.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas

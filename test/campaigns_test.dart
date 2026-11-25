@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:rpg_master_set/campaign_cover.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/main.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
@@ -257,6 +258,80 @@ void main() {
     expect(repository.saves, 0);
     expect(sync.drafts.single.status, DraftStatus.review);
     expect(sync.drafts.single.text.body, 'Texto antes do reset');
+  });
+
+  testWidgets('a busca encontra texto com acento e o filtro usa a categoria', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository()..body = 'Uma anotação sobre a torre';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'ANOTACAO torre');
+    await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'floresta');
+    await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsNothing);
+    await tester.tap(find.byTooltip('Limpar busca'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Investigação').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsOneWidget);
+  });
+
+  testWidgets('o cartão abre a campanha e a ação de capa fica com o mestre', (
+    tester,
+  ) async {
+    var opened = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CampaignCard(
+            campaign: campaign,
+            repository: _EditorRepository(),
+            isOwner: false,
+            onOpen: () => opened = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Jogador'), findsOneWidget);
+    expect(find.byTooltip('Adicionar capa'), findsNothing);
+    await tester.tap(find.text('O farol'));
+    expect(opened, isTrue);
+
+    var editing = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CampaignCard(
+            campaign: campaign,
+            repository: _EditorRepository(),
+            isOwner: true,
+            onOpen: () {},
+            onEditCover: () => editing = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Mestre'), findsOneWidget);
+    await tester.tap(find.byTooltip('Adicionar capa'));
+    expect(editing, isTrue);
   });
 
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {

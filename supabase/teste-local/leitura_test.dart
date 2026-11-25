@@ -69,10 +69,53 @@ void main() {
       playerRepo.readNotebook(campaignId),
       throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
     );
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKx8AAAAASUVORK5CYII=',
+    );
+    const coverLayout = CampaignCoverLayout(fill: false, zoom: 1.5, x: 0.2);
+    await gmRepo.setCampaignCover(campaign, coverLayout, png: png);
+    final withCover = (await gmRepo.list()).singleWhere(
+      (c) => c.id == campaignId,
+    );
+    final campaignCoverHash = withCover.coverHash!;
+    expect(withCover.coverLayout.toJson(), coverLayout.toJson());
+    await expectLater(
+      playerRepo.readCampaignCover(withCover, campaignCoverHash),
+      throwsA(isA<StorageException>()),
+    );
+    await expectLater(
+      gmRepo.setCampaignCover(campaign, coverLayout, hash: campaignCoverHash),
+      throwsA(isA<CampaignCoverConflict>()),
+    );
     final code = 'mesa-${campaignId.substring(0, 24)}';
     expect((await gmRepo.readAccess(campaign)).codeEnabled, isFalse);
     await gmRepo.setCampaignCode(campaign, code);
     await playerRepo.joinCampaign(code.toUpperCase());
+    final playerCampaign = (await playerRepo.list()).singleWhere(
+      (c) => c.id == campaignId,
+    );
+    expect(playerCampaign.coverHash, campaignCoverHash);
+    expect(
+      await playerRepo.readCampaignCover(playerCampaign, campaignCoverHash),
+      orderedEquals(png),
+    );
+    await expectLater(
+      player.rpc<int?>(
+        'rpg_try_set_campaign_cover',
+        params: {
+          ...memberArgs,
+          'p_expected': playerCampaign.coverRevision,
+          'p_hash': null,
+          'p_layout': coverLayout.toJson(),
+        },
+      ),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
+    await gmRepo.setCampaignCover(withCover, const CampaignCoverLayout());
+    expect(
+      (await gmRepo.list()).singleWhere((c) => c.id == campaignId).coverHash,
+      isNull,
+    );
     final access = await gmRepo.readAccess(campaign);
     expect(access.codeEnabled, isTrue);
     expect(access.members.map((m) => m.isOwner), [true, false]);
@@ -158,9 +201,6 @@ void main() {
     final legacy = (await gmRepo.readGmNotes(campaign)).single;
     expect(legacy.text.title, 'Uma nota privada de teste');
     expect(legacy.text.kind, GmNoteKind.note);
-    final png = base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKx8AAAAASUVORK5CYII=',
-    );
     final coverHash = await gmRepo.uploadGmCover(campaign, png);
     expect(await gmRepo.uploadGmCover(campaign, png), coverHash);
     final id = newNotebookRecordId();

@@ -5,23 +5,69 @@ import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Campaign {
-  const Campaign({required this.id, required this.name, required this.ownerId});
+  const Campaign({
+    required this.id,
+    required this.name,
+    required this.ownerId,
+    this.coverHash,
+    this.coverRevision = 0,
+    this.coverLayout = const CampaignCoverLayout(),
+  });
 
   factory Campaign.fromJson(Map<String, dynamic> json) => Campaign(
     id: json['id'] as String,
     name: json['name'] as String,
     ownerId: json['created_by'] as String,
+    coverHash: json['cover_hash'] as String?,
+    coverRevision: json['cover_revision'] as int? ?? 0,
+    coverLayout: CampaignCoverLayout.fromJson(json['cover_layout']),
   );
 
   final String id;
   final String name;
   final String ownerId;
+  final String? coverHash;
+  final int coverRevision;
+  final CampaignCoverLayout coverLayout;
 
-  Map<String, Object> toJson() => {
+  Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
     'created_by': ownerId,
+    'cover_hash': coverHash,
+    'cover_revision': coverRevision,
+    'cover_layout': coverLayout.toJson(),
   };
+}
+
+class CampaignCoverLayout {
+  const CampaignCoverLayout({
+    this.fill = true,
+    this.zoom = 1,
+    this.x = 0,
+    this.y = 0,
+  });
+
+  factory CampaignCoverLayout.fromJson(Object? data) {
+    if (data is! Map) return const CampaignCoverLayout();
+    return CampaignCoverLayout(
+      fill: data['fill'] is! bool || data['fill'] == true,
+      zoom: ((data['zoom'] as num?) ?? 1).clamp(1, 3).toDouble(),
+      x: ((data['x'] as num?) ?? 0).clamp(-1, 1).toDouble(),
+      y: ((data['y'] as num?) ?? 0).clamp(-1, 1).toDouble(),
+    );
+  }
+
+  final bool fill;
+  final double zoom;
+  final double x;
+  final double y;
+
+  Map<String, Object> toJson() => {'fill': fill, 'zoom': zoom, 'x': x, 'y': y};
+}
+
+class CampaignCoverConflict implements Exception {
+  const CampaignCoverConflict();
 }
 
 typedef CampaignMember = ({String name, bool isOwner});
@@ -204,7 +250,7 @@ typedef GmNoteText = ({
   String? coverHash,
 });
 
-final _gmCoverHash = RegExp(r'^[0-9a-f]{64}$');
+final _coverHash = RegExp(r'^[0-9a-f]{64}$');
 
 class GmNoteConflict implements Exception {
   const GmNoteConflict();
@@ -231,7 +277,7 @@ class GmNote {
       body: _row['body'] as String,
       section: GmSection.values.byName(_row['section'] as String),
       kind: kind ?? GmNoteKind.note,
-      coverHash: cover is String && _gmCoverHash.hasMatch(cover) ? cover : null,
+      coverHash: cover is String && _coverHash.hasMatch(cover) ? cover : null,
     );
   }
 
@@ -296,7 +342,9 @@ class CampaignRepository {
   Future<List<Campaign>> list() async {
     final rows = await _client
         .from('rpg_campaigns')
-        .select('id, name, created_by')
+        .select(
+          'id, name, created_by, cover_hash, cover_revision, cover_layout',
+        )
         .order('name');
     return rows.map(Campaign.fromJson).toList(growable: false);
   }
@@ -306,6 +354,31 @@ class CampaignRepository {
       'rpg_create_campaign_with_id',
       params: {'p_id': id, 'p_name': name},
     );
+  }
+
+  Future<Uint8List> readCampaignCover(Campaign campaign, String hash) =>
+      _readCover(campaign, hash, 'rpg-notes');
+
+  Future<void> setCampaignCover(
+    Campaign campaign,
+    CampaignCoverLayout layout, {
+    String? hash,
+    Uint8List? png,
+  }) async {
+    _requireCampaignOwner(campaign);
+    final selected = png == null
+        ? hash
+        : await _uploadCover(campaign, png, 'rpg-notes');
+    final revision = await _client.rpc<int?>(
+      'rpg_try_set_campaign_cover',
+      params: {
+        'p_campaign': campaign.id,
+        'p_expected': campaign.coverRevision,
+        'p_hash': selected,
+        'p_layout': layout.toJson(),
+      },
+    );
+    if (revision == null) throw const CampaignCoverConflict();
   }
 
   Future<void> joinCampaign(String code) async {
@@ -489,18 +562,28 @@ class CampaignRepository {
 
   Future<Uint8List> readGmCover(Campaign campaign, String hash) {
     _requireCampaignOwner(campaign);
-    if (!_gmCoverHash.hasMatch(hash)) throw ArgumentError.value(hash, 'hash');
-    return _client.storage
-        .from('rpg-gm-private')
-        .download('${campaign.id}/$hash.png');
+    return _readCover(campaign, hash, 'rpg-gm-private');
   }
 
-  Future<String> uploadGmCover(Campaign campaign, Uint8List png) async {
+  Future<Uint8List> _readCover(Campaign campaign, String hash, String bucket) {
+    if (!_coverHash.hasMatch(hash)) throw ArgumentError.value(hash, 'hash');
+    return _client.storage.from(bucket).download('${campaign.id}/$hash.png');
+  }
+
+  Future<String> uploadGmCover(Campaign campaign, Uint8List png) {
     _requireCampaignOwner(campaign);
+    return _uploadCover(campaign, png, 'rpg-gm-private');
+  }
+
+  Future<String> _uploadCover(
+    Campaign campaign,
+    Uint8List png,
+    String bucket,
+  ) async {
     final hash = sha256.convert(png).toString();
     try {
       await _client.storage
-          .from('rpg-gm-private')
+          .from(bucket)
           .uploadBinary(
             '${campaign.id}/$hash.png',
             png,
