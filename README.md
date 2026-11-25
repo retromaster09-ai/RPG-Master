@@ -36,13 +36,17 @@ crônicas e as notas do mestre. Em um Supabase separado, duas contas
 fictícias confirmaram que a API bloqueia a leitura e os downloads
 privados para o jogador, enquanto o mestre mantém acesso ao roteiro.
 
-Essa versão não grava no banco. O formato dos objetos em `entries` foi
-confirmado com os CSVs da campanha. O leitor passou nos testes com
-respostas simuladas e processou o caderno atual e suas 20 versões
-exportadas. A leitura usa a função v3 para abrir os cadernos com
-organização e lixeira da versão 0.16. O login com nome de usuário, a
-recuperação por código, a edição colaborativa e os recursos de jogo
-continuam pendentes.
+Mestre e jogadores podem criar e editar registros e crônicas. O salvamento
+usa a revisão e a época da campanha. Alterações concorrentes em registros
+ou campos diferentes são combinadas. Se as duas versões mudarem o mesmo
+campo, o editor mantém o rascunho aberto e mostra a versão salva para
+revisão. A formatação de trechos intactos é preservada no salvamento.
+O roteiro continua disponível para leitura pelo mestre. Para editar,
+o projeto Supabase precisa da migração em `supabase/migrations/`.
+Essa migração já foi aplicada no projeto de teste.
+
+O login com nome de usuário, a recuperação por código e os recursos
+de jogo continuam pendentes.
 
 Em `supabase/` ficam as consultas de inventário, as assinaturas
 confirmadas e a inspeção do formato das entradas. A pasta `supabase/legado-0.16.2/` preserva

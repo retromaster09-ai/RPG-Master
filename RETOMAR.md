@@ -67,17 +67,21 @@ as autorizações de cada função tocada e rode os testes novamente.
 
 ## Prioridades
 
-1. Implementar a edição compartilhada com `p_expected`, `p_epoch` e
-   `p_entries`, preservando campos de entradas antigas. Testar duas
-   gravações concorrentes antes de liberar edição de conteúdo existente.
-2. Gerar um APK de teste com o identificador separado e testar num
+A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
+que delega a gravação à função original e sinaliza revisões desatualizadas
+para o editor. A migração foi aplicada no projeto de teste. A chamada
+preserva `p_expected`, `p_epoch` e o JSON original. O editor preserva campos
+legados e itens na lixeira. Em caso de conflito no mesmo campo, mantém
+o rascunho e permite comparar com o texto salvo antes de reenviar.
+
+1. Gerar um APK de teste com o identificador separado e testar num
    aparelho. A compilação web e os testes Dart já foram verificados.
-3. Adicionar login por nome de usuário e senha preservando o UUID de quem
+2. Adicionar login por nome de usuário e senha preservando o UUID de quem
    já tem conta. Na recuperação, o mestre autorizado aprova o pedido e
    envia o código pelo canal que desejar. O código expira, só pode ser
    usado uma vez e tem limite de tentativas. Definir a recuperação do
    próprio mestre antes de substituir o fluxo antigo.
-4. Implementar depois iniciativa e condições, contagem de fúria,
+3. Implementar depois iniciativa e condições, contagem de fúria,
    concentração, fichas e VTT. No VTT, o jogador recebe somente as áreas
    autorizadas, incluindo quando inspecionar o tráfego do próprio app.
 

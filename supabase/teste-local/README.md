@@ -9,7 +9,8 @@ bash supabase/teste-local/executar.sh
 ```
 
 O script sobe um Supabase descartável, carrega os scripts originais na
-ordem histórica e executa um teste de integração com duas contas
+ordem histórica, aplica as migrações da reconstrução e executa um
+teste de integração com duas contas
 fictícias. A configuração de recuperação por e-mail fica fora deste
 teste. O banco local é descartado ao final.
 
@@ -43,8 +44,9 @@ o login, a consulta pelo SDK Flutter e a transferência dos arquivos.
 
 ## Executar em um projeto Supabase de teste hospedado
 
-Aplique os scripts de `ordem.txt` em um projeto separado para testes
-e crie duas contas fictícias confirmadas pelo painel de Auth. Guarde
+Aplique os scripts de `ordem.txt` e as migrações em
+`supabase/migrations/` em um projeto separado para testes. Crie duas
+contas fictícias confirmadas pelo painel de Auth. Guarde
 um JSON em uma pasta privada com os seguintes campos:
 
 - `SUPABASE_TEST_URL` e `SUPABASE_TEST_PROJECT_REF`, com a URL HTTPS e a

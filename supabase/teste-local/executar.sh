@@ -24,6 +24,7 @@ for i in "${!scripts[@]}"; do
   printf -v timestamp '202610010000%02d' "$((i + 1))"
   cp "$legacy/${scripts[i]}.sql" "$migrations/${timestamp}_${scripts[i]}.sql"
 done
+cp "$project_root"/supabase/migrations/*.sql "$migrations/"
 
 supabase --workdir "$test_dir" start \
   -x realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \

@@ -162,8 +162,108 @@ void main() {
       await player.storage.from('rpg-notes').download(name),
       orderedEquals(png),
     );
+
+    final gmSnapshot = await gmRepo.readNotebook(campaignId);
+    final playerSnapshot = await playerRepo.readNotebook(campaignId);
+    final clue = gmSnapshot.records.single;
+    final session = playerSnapshot.sessions.single;
+    await Future.wait([
+      _saveTitle(gmRepo, campaignId, gmSnapshot, clue, 'Pista revisada'),
+      _saveTitle(
+        playerRepo,
+        campaignId,
+        playerSnapshot,
+        session,
+        'Crônica revisada',
+      ),
+    ]);
+    final combined = await gmRepo.readNotebook(campaignId);
+    expect(combined.records.single.title, 'Pista revisada');
+    expect(combined.sessions.single.title, 'Crônica revisada');
+
+    final sameRecord = combined.records.single;
+    final results = await Future.wait([
+      _attemptTitle(
+        gmRepo,
+        campaignId,
+        combined,
+        sameRecord,
+        'Rascunho do mestre',
+      ),
+      _attemptTitle(
+        playerRepo,
+        campaignId,
+        combined,
+        sameRecord,
+        'Rascunho do jogador',
+      ),
+    ]);
+    final conflict = results.whereType<NotebookConflict>().single;
+    final afterConflict = await gmRepo.readNotebook(campaignId);
+    expect(
+      afterConflict.records.single.title,
+      anyOf('Rascunho do mestre', 'Rascunho do jogador'),
+    );
+    expect(conflict.current?.title, afterConflict.records.single.title);
+    expect(afterConflict.sessions.single.title, 'Crônica revisada');
+
+    final newId = newNotebookRecordId();
+    Future<void> create() => playerRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: afterConflict,
+      id: newId,
+      category: 'Sessão',
+      text: (
+        title: 'Segunda crônica',
+        body: 'Resumo',
+        answer: '',
+        confidence: 'Não se aplica',
+      ),
+    );
+    await create();
+    await create();
+    expect(
+      (await gmRepo.readNotebook(campaignId)).sessions
+          .where((record) => record.id == newId),
+      hasLength(1),
+    );
   }, timeout: const Timeout(Duration(seconds: 40)));
 }
+
+Future<NotebookConflict?> _attemptTitle(
+  CampaignRepository repository,
+  String campaignId,
+  Notebook notebook,
+  CampaignRecord record,
+  String title,
+) async {
+  try {
+    await _saveTitle(repository, campaignId, notebook, record, title);
+    return null;
+  } on NotebookConflict catch (conflict) {
+    return conflict;
+  }
+}
+
+Future<void> _saveTitle(
+  CampaignRepository repository,
+  String campaignId,
+  Notebook notebook,
+  CampaignRecord record,
+  String title,
+) => repository.saveNotebookRecord(
+  campaignId: campaignId,
+  notebook: notebook,
+  id: record.id!,
+  category: record.category!,
+  original: record,
+  text: (
+    title: title,
+    body: record.body,
+    answer: record.answer,
+    confidence: record.text.confidence,
+  ),
+);
 
 Future<void> _signUp(SupabaseClient client, String email) async {
   final auth = await client.auth.signUp(

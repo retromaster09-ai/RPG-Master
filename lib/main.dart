@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campaigns.dart';
+import 'notebook_editor.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -329,6 +330,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
   );
   Future<List<CampaignRecord>>? _privateNotes;
   _NotebookTab _tab = _NotebookTab.records;
+  NotebookEditor? _editor;
 
   void _selectTab(_NotebookTab tab) {
     setState(() {
@@ -351,14 +353,111 @@ class _NotebookScreenState extends State<NotebookScreen> {
     });
   }
 
-  Future<List<CampaignRecord>> _sharedRecords() async {
-    final sessions = _tab == _NotebookTab.sessions;
-    final notebook = await _notebook;
-    return sessions ? notebook.sessions : notebook.records;
+  void _edit(Notebook notebook, [CampaignRecord? record]) {
+    setState(() {
+      _editor = NotebookEditor(
+        repository: widget.repository,
+        campaignId: widget.campaign.id,
+        notebook: notebook,
+        isSession: _tab == _NotebookTab.sessions,
+        record: record,
+        onClose: () => setState(() => _editor = null),
+        onSaved: () => setState(() {
+          _editor = null;
+          _notebook = widget.repository.readNotebook(widget.campaign.id);
+        }),
+      );
+    });
+  }
+
+  Widget _records(
+    AsyncSnapshot<Object> snapshot,
+    List<CampaignRecord>? records, {
+    Notebook? notebook,
+  }) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snapshot.hasError) {
+      final message = snapshot.error is FormatException
+          ? 'Esta versão ainda precisa do formato dos registros.'
+          : 'Não foi possível carregar os registros.';
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+      );
+    }
+    final entries = records ?? const <CampaignRecord>[];
+    final toolbarCount = notebook == null ? 0 : 1;
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: toolbarCount + (entries.isEmpty ? 1 : entries.length),
+      itemBuilder: (context, index) {
+        if (notebook != null && index == 0) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: () => _edit(notebook),
+              icon: const Icon(Icons.add),
+              label: Text(
+                _tab == _NotebookTab.sessions
+                    ? 'Nova crônica'
+                    : 'Novo registro',
+              ),
+            ),
+          );
+        }
+        if (entries.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: Text('Nenhum registro nesta aba.')),
+          );
+        }
+        final record = entries[index - toolbarCount];
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        record.title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    if (notebook != null && record.id != null)
+                      IconButton(
+                        onPressed: () => _edit(notebook, record),
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Editar',
+                      ),
+                  ],
+                ),
+                if (record.category case final category?) Text(category),
+                if (record.confidence case final confidence?)
+                  Text('Confiança · $confidence'),
+                if (record.body.isNotEmpty) SelectableText(record.body),
+                if (record.answer.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Resposta'),
+                  SelectableText(record.answer),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_editor case final editor?) return editor;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (popped, _) {
@@ -376,63 +475,22 @@ class _NotebookScreenState extends State<NotebookScreen> {
             ),
           ],
         ),
-        body: FutureBuilder(
-          future: _tab == _NotebookTab.private
-              ? _privateNotes
-              : _sharedRecords(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              final message = snapshot.error is FormatException
-                  ? 'Esta versão ainda precisa do formato dos registros.'
-                  : 'Não foi possível carregar os registros.';
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(message, textAlign: TextAlign.center),
-                ),
-              );
-            }
-            final records = snapshot.data!;
-            if (records.isEmpty) {
-              return const Center(child: Text('Nenhum registro nesta aba.'));
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: records.length,
-              itemBuilder: (context, index) {
-                final record = records[index];
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (record.title.isNotEmpty)
-                          Text(
-                            record.title,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        if (record.category case final category?)
-                          Text(category),
-                        if (record.confidence case final confidence?)
-                          Text('Confiança · $confidence'),
-                        if (record.body.isNotEmpty) SelectableText(record.body),
-                        if (record.answer.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          const Text('Resposta'),
-                          SelectableText(record.answer),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
+        body: _tab == _NotebookTab.private
+            ? FutureBuilder(
+                future: _privateNotes,
+                builder: (context, snapshot) =>
+                    _records(snapshot, snapshot.data),
+              )
+            : FutureBuilder(
+                future: _notebook,
+                builder: (context, snapshot) {
+                  final notebook = snapshot.data;
+                  final records = _tab == _NotebookTab.sessions
+                      ? notebook?.sessions
+                      : notebook?.records;
+                  return _records(snapshot, records, notebook: notebook);
+                },
+              ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _tab.index,
           onDestinationSelected: (index) =>
