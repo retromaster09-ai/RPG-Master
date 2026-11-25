@@ -25,8 +25,12 @@ APK de teste, troque `flutter run -d chrome` por
 
 A versão de desenvolvimento usa o identificador Android
 `com.rpgmaster.recovery.rpg_master_set`, para poder ser instalada ao lado
-do pacote original `com.rpgmaster.rpg_master`. Antes de publicar,
-configure a assinatura de distribuição e guarde a chave em local privado.
+do pacote original `com.rpgmaster.rpg_master`. No Android, procure
+**RPG Master Set Teste**. O APK ARM64 de teste é gerado com
+`flutter build apk --release --target-platform android-arm64 --split-per-abi`
+e os mesmos parâmetros `--dart-define` do projeto Supabase de teste.
+O APK usa assinatura de teste. Antes de publicar uma versão de
+distribuição, configure sua assinatura e guarde a chave em local privado.
 
 ## Estado da reconstrução
 

@@ -11,8 +11,7 @@ chat. Leia também o README e o histórico Git.
 - O primeiro commit preservou os recursos visuais e as fontes do APK.
   O repositório agora contém a primeira implementação Flutter. O README
   explica como executá-la com o SDK fixado. Em 25/11/2026, a análise,
-  os testes e a compilação web passaram. A compilação Android ainda
-  está pendente.
+  os testes e a compilação web passaram.
 - Os 24 commits do repositório público `retromaster09-ai/RPG-Master`
   contêm APKs, prévias e scripts do Supabase. Não apareceu o projeto
   Flutter original. Os scripts e guias foram preservados em
@@ -74,8 +73,11 @@ preserva `p_expected`, `p_epoch` e o JSON original. O editor preserva campos
 legados e itens na lixeira. Em caso de conflito no mesmo campo, mantém
 o rascunho e permite comparar com o texto salvo antes de reenviar.
 
-1. Gerar um APK de teste com o identificador separado e testar num
-   aparelho. A compilação web e os testes Dart já foram verificados.
+1. Validar em dois celulares o APK ARM64 `0.17.0-dev.1`, identificado
+   como **RPG Master Set Teste**. A compilação, a assinatura e o pacote
+   foram verificados. O APK usa um projeto Supabase separado e a
+   **Mesa de teste do APK**, com duas contas fictícias. As credenciais
+   ficam fora do repositório.
 2. Adicionar login por nome de usuário e senha preservando o UUID de quem
    já tem conta. Na recuperação, o mestre autorizado aprova o pedido e
    envia o código pelo canal que desejar. O código expira, só pode ser
