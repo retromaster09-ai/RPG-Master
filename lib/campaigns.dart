@@ -15,21 +15,38 @@ class Campaign {
 }
 
 class CampaignRecord {
-  const CampaignRecord(this.title, this.body, {this.confidence});
+  const CampaignRecord(
+    this.title,
+    this.body, {
+    this.answer = '',
+    this.category,
+    this.confidence,
+  });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
     final title = json['title'];
-    final body = json['body'] ?? json['text'] ?? json['summary'];
+    final body = json['body'];
+    final answer = json['answer'];
+    final category = json['category'];
     final confidence = json['confidence'];
     return CampaignRecord(
       title is String ? title : '',
       body is String ? body : '',
-      confidence: confidence is String ? confidence : null,
+      answer: answer is String ? answer : '',
+      category: category is String && category.isNotEmpty ? category : null,
+      confidence:
+          confidence is String &&
+              confidence.isNotEmpty &&
+              confidence != 'Não se aplica'
+          ? confidence
+          : null,
     );
   }
 
   final String title;
   final String body;
+  final String answer;
+  final String? category;
   final String? confidence;
 }
 
@@ -46,12 +63,14 @@ class Notebook {
       if (item is! Map<String, dynamic>) {
         throw const FormatException('Registro do caderno inválido.');
       }
+      if (item['deletedAt'] != null) continue;
       final record = CampaignRecord.fromJson(item);
-      if (record.title.isEmpty && record.body.isEmpty) {
+      if (record.title.isEmpty &&
+          record.body.isEmpty &&
+          record.answer.isEmpty) {
         throw const FormatException('Conteúdo do registro não reconhecido.');
       }
-      final kind = item['kind'] ?? item['type'] ?? item['category'];
-      (kind == 'session' ? sessions : records).add(record);
+      (record.category == 'Sessão' ? sessions : records).add(record);
     }
     return Notebook(List.unmodifiable(records), List.unmodifiable(sessions));
   }

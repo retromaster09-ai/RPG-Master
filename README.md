@@ -37,9 +37,11 @@ pelo aplicativo para o criador da campanha. O Supabase ainda precisa
 ser testado com duas contas reais em ambiente de teste para confirmar
 que bloqueia a leitura e as imagens para jogadores.
 
-Essa versão não grava no banco. O formato dos objetos dentro de
-`entries` ainda precisa ser confirmado no Supabase. O leitor foi
-testado com respostas simuladas. O login com nome de usuário, a
+Essa versão não grava no banco. O formato dos objetos em `entries` foi
+confirmado com os CSVs da campanha. O leitor passou nos testes com
+respostas simuladas e processou o caderno atual e suas 20 versões
+exportadas. A resposta da RPC ainda precisa ser validada
+no projeto de teste. O login com nome de usuário, a
 recuperação por código, a edição colaborativa e os recursos de jogo
 continuam pendentes.
 

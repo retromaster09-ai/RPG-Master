@@ -13,7 +13,8 @@ chat. Leia também o README e o histórico Git.
   explica como executá-la com o SDK fixado.
 - O mestre tem acesso ao projeto Supabase de produção usado pelo APK.
   O banco tem dados de teste. O mestre exportou os cinco CSVs das tabelas
-  conhecidas. O download das imagens de teste ficou opcional.
+  conhecidas e os anexou em 25/11/2026. Os dados do mestre e da campanha
+  ficam fora do Git. O download das imagens de teste ficou opcional.
 - O CSV de metadados em `supabase/inventario-0.16.2.csv` confirma cinco
   tabelas, 38 colunas, 22 assinaturas de funções e nove políticas.
   A lista de políticas mostra os nomes e as operações, sem a lógica das
@@ -42,10 +43,10 @@ usados pelo PostgREST e os tipos de retorno das cinco funções principais.
 
 1. A primeira implementação já usa `rpg_read_notebook(p_campaign)` e
    `rpg_gm_list_v2(p_campaign)` para leitura, além da lista de campanhas.
-   Confirmar o formato real de `entries` e de suas crônicas. A consulta
-   `supabase/formato-caderno.sql` ajuda a reconhecer os campos sem ler
-   seus valores. Se necessário, usar uma amostra fictícia da mesma
-   versão do APK para validar o leitor.
+   O export atual tem 98 entradas em array de objetos; 17 têm categoria
+   `Sessão`, das quais quatro estão na lixeira. O leitor usa `category`,
+   `title`, `body`, `answer`, `confidence` e `deletedAt`. Falta validar se
+   a RPC devolve o envelope `{"entries": [...]}` no Supabase de teste.
 2. Testar em ambiente separado a leitura com contas de mestre e jogador.
    Preservar as migrações do banco e verificar as políticas e a
    autorização das funções com ambas as contas. Implementar a edição

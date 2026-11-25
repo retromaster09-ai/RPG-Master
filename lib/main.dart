@@ -415,9 +415,16 @@ class _NotebookScreenState extends State<NotebookScreen> {
                             record.title,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
+                        if (record.category case final category?)
+                          Text(category),
                         if (record.confidence case final confidence?)
                           Text('Confiança · $confidence'),
                         if (record.body.isNotEmpty) SelectableText(record.body),
+                        if (record.answer.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          const Text('Resposta'),
+                          SelectableText(record.answer),
+                        ],
                       ],
                     ),
                   ),

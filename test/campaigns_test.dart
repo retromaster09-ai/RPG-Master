@@ -27,8 +27,25 @@ void main() {
           expect(jsonDecode(request.body), {'p_campaign': campaign.id});
           return jsonResponse(request, {
             'entries': [
-              {'title': 'Uma pista', 'body': 'Mapa encontrado'},
-              {'kind': 'session', 'title': 'Primeira sessão', 'body': 'Resumo'},
+              {
+                'category': 'Investigação',
+                'title': 'Uma pista',
+                'body': '',
+                'answer': 'Mapa encontrado',
+                'confidence': 'Hipótese',
+                'deletedAt': null,
+              },
+              {
+                'category': 'Sessão',
+                'title': 'Primeira sessão',
+                'body': 'Resumo',
+                'confidence': 'Não se aplica',
+              },
+              {
+                'category': 'Sessão',
+                'title': 'Sessão apagada',
+                'deletedAt': '2026-01-01T00:00:00',
+              },
             ],
           });
         }),
@@ -37,7 +54,10 @@ void main() {
       final notebook = await CampaignRepository(client)
           .readNotebook(campaign.id);
       expect(notebook.records.single.title, 'Uma pista');
+      expect(notebook.records.single.answer, 'Mapa encontrado');
+      expect(notebook.records.single.confidence, 'Hipótese');
       expect(notebook.sessions.single.title, 'Primeira sessão');
+      expect(notebook.sessions.single.confidence, isNull);
     },
   );
 
