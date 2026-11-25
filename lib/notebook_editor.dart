@@ -1,22 +1,25 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
+import 'notebook_sync.dart';
 
 class NotebookEditor extends StatefulWidget {
   const NotebookEditor({
     super.key,
-    required this.repository,
-    required this.campaignId,
-    required this.notebook,
+    required this.sync,
+    required this.epoch,
     required this.isSession,
     required this.onClose,
     required this.onSaved,
     this.record,
+    this.savedDraft,
   });
 
-  final CampaignRepository repository;
-  final String campaignId;
-  final Notebook notebook;
+  final NotebookSync sync;
+  final int epoch;
+  final NotebookDraft? savedDraft;
   final CampaignRecord? record;
   final bool isSession;
   final VoidCallback onClose;
@@ -44,22 +47,26 @@ class _NotebookEditorState extends State<NotebookEditor> {
     'Alta',
   ];
 
-  late final _id = widget.record?.id ?? newNotebookRecordId();
-  late var _baseRecord = widget.record;
+  late final _id =
+      widget.savedDraft?.id ?? widget.record?.id ?? newNotebookRecordId();
+  late var _baseRecord = widget.savedDraft?.original ?? widget.record;
   late final _original =
-      widget.record?.text ??
+      _baseRecord?.text ??
       (title: '', body: '', answer: '', confidence: 'Não se aplica');
-  late final _title = TextEditingController(text: _original.title);
-  late final _body = TextEditingController(text: _original.body);
-  late final _answer = TextEditingController(text: _original.answer);
-  late String _confidence = _original.confidence;
-  late String _category =
-      widget.record?.category ??
+  late final _initial = widget.savedDraft?.text ?? _original;
+  late final _title = TextEditingController(text: _initial.title);
+  late final _body = TextEditingController(text: _initial.body);
+  late final _answer = TextEditingController(text: _initial.answer);
+  late String _confidence = _initial.confidence;
+  late final String _startingCategory =
+      _baseRecord?.category ??
       (widget.isSession ? 'Sessão' : _categories.first);
+  late String _category = widget.savedDraft?.category ?? _startingCategory;
   bool _saving = false;
   bool _confirmingClose = false;
-  String? _error;
-  CampaignRecord? _current;
+  bool _savedLocally = false;
+  late String? _error = widget.savedDraft?.message;
+  late CampaignRecord? _current = widget.savedDraft?.remote;
 
   NotebookText get _draft => (
     title: _title.text,
@@ -76,12 +83,57 @@ class _NotebookEditorState extends State<NotebookEditor> {
     super.dispose();
   }
 
+  NotebookDraft _change(DraftStatus status) => NotebookDraft(
+    id: _id,
+    category: _category,
+    epoch: widget.savedDraft?.epoch ?? widget.epoch,
+    text: _draft,
+    original: _baseRecord,
+    status: status,
+    message: status == DraftStatus.editing ? _error : null,
+    remote: status == DraftStatus.editing ? _current : null,
+  );
+
+  Future<void> _persistDraft() async {
+    try {
+      await widget.sync.keep(_change(DraftStatus.editing));
+      if (mounted && !_savedLocally) setState(() => _savedLocally = true);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _savedLocally = false;
+          _error = 'Não foi possível guardar o rascunho neste aparelho.';
+        });
+      }
+    }
+  }
+
   Future<void> _close() async {
     if (_saving || _confirmingClose) return;
-    if (_draft == _original) {
+    if (widget.savedDraft == null &&
+        !_savedLocally &&
+        _draft == _original &&
+        _category == _startingCategory) {
       widget.onClose();
       return;
     }
+    setState(() => _saving = true);
+    try {
+      await widget.sync.keep(_change(DraftStatus.editing));
+      if (mounted) widget.onClose();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'Não foi possível guardar o rascunho neste aparelho.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _discard() async {
+    if (_saving || _confirmingClose) return;
     _confirmingClose = true;
     final discard = await showDialog<bool>(
       context: context,
@@ -101,7 +153,18 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
     if (!mounted) return;
     _confirmingClose = false;
-    if (discard == true) widget.onClose();
+    if (discard != true) return;
+    setState(() => _saving = true);
+    try {
+      await widget.sync.discard(_id);
+      if (mounted) widget.onClose();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Não foi possível descartar o rascunho.');
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _save() async {
@@ -115,33 +178,15 @@ class _NotebookEditorState extends State<NotebookEditor> {
       setState(() => _error = 'Escreva um título, um texto ou uma resposta.');
       return;
     }
-    setState(() {
-      _saving = true;
-      _error = null;
-      _current = null;
-    });
+    setState(() => _saving = true);
     try {
-      await widget.repository.saveNotebookRecord(
-        campaignId: widget.campaignId,
-        notebook: widget.notebook,
-        id: _id,
-        category: _category,
-        text: draft,
-        original: _baseRecord,
-      );
+      await widget.sync.keep(_change(DraftStatus.queued));
       if (mounted) widget.onSaved();
-    } on NotebookConflict catch (error) {
-      if (mounted) {
-        setState(() {
-          _error = error.message;
-          _current = error.current;
-        });
-      }
-    } on Exception {
+      unawaited(widget.sync.refresh());
+    } catch (_) {
       if (mounted) {
         setState(
-          () =>
-              _error = 'Não foi possível salvar. Seu rascunho continua aberto.',
+          () => _error = 'Não foi possível salvar neste aparelho. Seu texto continua aberto.',
         );
       }
     } finally {
@@ -164,6 +209,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
       _current = null;
       _error = null;
     });
+    unawaited(_persistDraft());
   }
 
   @override
@@ -178,15 +224,22 @@ class _NotebookEditorState extends State<NotebookEditor> {
         appBar: AppBar(
           leading: BackButton(onPressed: _close),
           title: Text(
-            widget.record == null
+            _baseRecord == null
                 ? (widget.isSession ? 'Nova crônica' : 'Novo registro')
                 : (widget.isSession ? 'Editar crônica' : 'Editar registro'),
           ),
+          actions: [
+            IconButton(
+              onPressed: _saving ? null : _discard,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Descartar rascunho',
+            ),
+          ],
         ),
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (widget.record == null && !widget.isSession)
+            if (_baseRecord == null && !widget.isSession)
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 decoration: const InputDecoration(labelText: 'Categoria'),
@@ -194,16 +247,23 @@ class _NotebookEditorState extends State<NotebookEditor> {
                   for (final category in _categories)
                     DropdownMenuItem(value: category, child: Text(category)),
                 ],
-                onChanged: _saving ? null : (value) => _category = value!,
+                onChanged: _saving
+                    ? null
+                    : (value) {
+                        _category = value!;
+                        unawaited(_persistDraft());
+                      },
               ),
             TextField(
               controller: _title,
               enabled: !_saving,
+              onChanged: (_) => unawaited(_persistDraft()),
               decoration: const InputDecoration(labelText: 'Título'),
             ),
             TextField(
               controller: _body,
               enabled: !_saving,
+              onChanged: (_) => unawaited(_persistDraft()),
               decoration: const InputDecoration(labelText: 'Texto'),
               minLines: 5,
               maxLines: 16,
@@ -211,6 +271,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
             TextField(
               controller: _answer,
               enabled: !_saving,
+              onChanged: (_) => unawaited(_persistDraft()),
               decoration: const InputDecoration(labelText: 'Resposta'),
               minLines: 2,
               maxLines: 8,
@@ -223,9 +284,16 @@ class _NotebookEditorState extends State<NotebookEditor> {
                 for (final value in {..._confidenceOptions, _confidence})
                   DropdownMenuItem(value: value, child: Text(value)),
               ],
-              onChanged: _saving ? null : (value) => _confidence = value!,
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      _confidence = value!;
+                      unawaited(_persistDraft());
+                    },
             ),
             const SizedBox(height: 16),
+            if (_savedLocally && _error == null)
+              const Text('Rascunho guardado neste aparelho.'),
             if (_error case final error?)
               Text(
                 error,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +11,8 @@ import 'campaigns.dart';
 import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
 import 'notebook_editor.dart';
+import 'notebook_sync.dart';
+import 'offline_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -340,9 +343,43 @@ class CampaignScreen extends StatefulWidget {
 
 class _CampaignScreenState extends State<CampaignScreen> {
   late final _repository = CampaignRepository(widget.client);
-  late Future<List<Campaign>> _campaigns = _repository.list();
+  late final _offlineStorage = deviceStorage(
+    const String.fromEnvironment('SUPABASE_URL'),
+    widget.userId,
+  );
+  bool get _currentAccount =>
+      widget.client.auth.currentUser?.id == widget.userId;
+  late Future<List<Campaign>> _campaigns = _loadCampaigns();
   Campaign? _selected;
   bool _accountOpen = false;
+
+  Future<List<Campaign>> _loadCampaigns() async {
+    const key = 'campaigns';
+    try {
+      final campaigns = await _repository.list().timeout(
+        notebookRequestTimeout,
+      );
+      if (_currentAccount) {
+        try {
+          await _offlineStorage.write(
+            key,
+            jsonEncode(campaigns.map((campaign) => campaign.toJson()).toList()),
+          );
+        } on Exception {
+          // The network response is still usable when the device cache fails.
+        }
+      }
+      return campaigns;
+    } on Exception catch (error) {
+      if (!isConnectionFailure(error) || !_currentAccount) rethrow;
+      final cached = await _offlineStorage.read(key);
+      if (cached == null) rethrow;
+      return (jsonDecode(cached) as List)
+          .cast<Map<String, dynamic>>()
+          .map(Campaign.fromJson)
+          .toList();
+    }
+  }
 
   Future<void> _createCampaign() async {
     final id = newNotebookRecordId();
@@ -358,7 +395,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
     );
     if (!mounted || name == null) return;
     setState(() {
-      _campaigns = _repository.list();
+      _campaigns = _loadCampaigns();
       _selected = Campaign(id: id, name: name, ownerId: widget.userId);
     });
   }
@@ -377,7 +414,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
       submit: _repository.joinCampaign,
     );
     if (!mounted || joined == null) return;
-    setState(() => _campaigns = _repository.list());
+    setState(() => _campaigns = _loadCampaigns());
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Campanha adicionada às suas mesas.')),
     );
@@ -412,6 +449,8 @@ class _CampaignScreenState extends State<CampaignScreen> {
         campaign: campaign,
         repository: _repository,
         isOwner: campaign.ownerId == widget.userId,
+        offlineStorage: _offlineStorage,
+        isCurrentAccount: () => _currentAccount,
         onBack: () => setState(() => _selected = null),
       );
     }
@@ -426,7 +465,7 @@ class _CampaignScreenState extends State<CampaignScreen> {
             tooltip: 'Minha conta',
           ),
           IconButton(
-            onPressed: () => setState(() => _campaigns = _repository.list()),
+            onPressed: () => setState(() => _campaigns = _loadCampaigns()),
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar',
           ),
@@ -516,21 +555,64 @@ class NotebookScreen extends StatefulWidget {
     required this.repository,
     required this.isOwner,
     required this.onBack,
+    this.offlineStorage,
+    this.isCurrentAccount,
   });
 
   final Campaign campaign;
   final CampaignRepository repository;
   final bool isOwner;
   final VoidCallback onBack;
+  final OfflineStorage? offlineStorage;
+  final bool Function()? isCurrentAccount;
 
   @override
   State<NotebookScreen> createState() => _NotebookScreenState();
 }
 
-class _NotebookScreenState extends State<NotebookScreen> {
-  late Future<Notebook> _notebook = widget.repository.readNotebook(
-    widget.campaign.id,
-  );
+class _NotebookScreenState extends State<NotebookScreen>
+    with WidgetsBindingObserver {
+  late final NotebookSync _sync;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync = NotebookSync(
+      repository: widget.repository,
+      campaignId: widget.campaign.id,
+      storage: widget.offlineStorage ?? MemoryOfflineStorage(),
+      isCurrentAccount: widget.isCurrentAccount ?? () => true,
+    )..addListener(_onSync);
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_sync.load());
+    _poll = Timer.periodic(const Duration(seconds: 8), (_) {
+      final state = WidgetsBinding.instance.lifecycleState;
+      if (state == null || state == AppLifecycleState.resumed) {
+        unawaited(_sync.refresh());
+      }
+    });
+  }
+
+  void _onSync() {
+    if (mounted && _editor == null && _tab != _NotebookTab.private) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_sync.refresh());
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _sync.dispose();
+    super.dispose();
+  }
+
   Future<List<GmNote>>? _privateNotes;
   _NotebookTab _tab = _NotebookTab.records;
   Widget? _editor;
@@ -547,28 +629,29 @@ class _NotebookScreenState extends State<NotebookScreen> {
   }
 
   void _refresh() {
-    setState(() {
-      if (_tab == _NotebookTab.private) {
-        _privateNotes = widget.repository.readGmNotes(widget.campaign);
-      } else {
-        _notebook = widget.repository.readNotebook(widget.campaign.id);
-      }
-    });
+    if (_tab == _NotebookTab.private) {
+      setState(
+        () => _privateNotes = widget.repository.readGmNotes(widget.campaign),
+      );
+    } else {
+      unawaited(_sync.refresh());
+    }
   }
 
-  void _edit(Notebook notebook, [CampaignRecord? record]) {
+  void _edit(
+    Notebook notebook, {
+    CampaignRecord? record,
+    NotebookDraft? draft,
+  }) {
     setState(() {
       _editor = NotebookEditor(
-        repository: widget.repository,
-        campaignId: widget.campaign.id,
-        notebook: notebook,
-        isSession: _tab == _NotebookTab.sessions,
+        sync: _sync,
+        epoch: notebook.epoch,
+        isSession: draft?.isSession ?? _tab == _NotebookTab.sessions,
         record: record,
+        savedDraft: draft,
         onClose: () => setState(() => _editor = null),
-        onSaved: () => setState(() {
-          _editor = null;
-          _notebook = widget.repository.readNotebook(widget.campaign.id);
-        }),
+        onSaved: () => setState(() => _editor = null),
       );
     });
   }
@@ -672,52 +755,78 @@ class _NotebookScreenState extends State<NotebookScreen> {
     );
   }
 
-  Widget _records(
-    AsyncSnapshot<Object> snapshot,
-    List<CampaignRecord>? records, {
-    Notebook? notebook,
-  }) {
-    if (snapshot.connectionState != ConnectionState.done) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (snapshot.hasError) {
-      final message = snapshot.error is FormatException
-          ? 'Esta versão ainda precisa do formato dos registros.'
-          : 'Não foi possível carregar os registros.';
+  Widget _records() {
+    final notebook = _sync.notebook;
+    if (notebook == null) {
+      final error = _sync.error;
+      if (error == null) {
+        return const Center(child: CircularProgressIndicator());
+      }
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(message, textAlign: TextAlign.center),
+          child: Text(error, textAlign: TextAlign.center),
         ),
       );
     }
-    final entries = records ?? const <CampaignRecord>[];
-    final toolbarCount = notebook == null ? 0 : 1;
+    final isSession = _tab == _NotebookTab.sessions;
+    final entries = isSession ? notebook.sessions : notebook.records;
+    final drafts = {
+      for (final draft in _sync.drafts)
+        if (draft.isSession == isSession) draft.id: draft,
+    };
+    final header = <Widget>[
+      if (_sync.localError)
+        const ListTile(
+          leading: Icon(Icons.warning_amber_outlined),
+          title: Text('Falha ao gravar a cópia neste aparelho.'),
+        ),
+      if (_sync.offline || _sync.error != null)
+        ListTile(
+          leading: const Icon(Icons.cloud_off_outlined),
+          title: Text(_sync.error ?? 'Sem conexão · cópia neste aparelho'),
+        ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: FilledButton.icon(
+          onPressed: () => _edit(notebook),
+          icon: const Icon(Icons.add),
+          label: Text(isSession ? 'Nova crônica' : 'Novo registro'),
+        ),
+      ),
+      for (final draft in drafts.values)
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.edit_note_outlined),
+            title: Text(
+              draft.text.title.trim().isEmpty ? 'Sem título' : draft.text.title,
+            ),
+            subtitle: Text(switch (draft.status) {
+              DraftStatus.editing => 'Rascunho neste aparelho',
+              DraftStatus.queued => 'Aguardando envio',
+              DraftStatus.review => 'Revisar edição',
+            }),
+            onTap: draft.status == DraftStatus.queued
+                ? null
+                : () => _edit(notebook, draft: draft),
+          ),
+        ),
+    ];
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: toolbarCount + (entries.isEmpty ? 1 : entries.length),
+      itemCount:
+          header.length +
+          (entries.isEmpty && drafts.isEmpty ? 1 : entries.length),
       itemBuilder: (context, index) {
-        if (notebook != null && index == 0) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: () => _edit(notebook),
-              icon: const Icon(Icons.add),
-              label: Text(
-                _tab == _NotebookTab.sessions
-                    ? 'Nova crônica'
-                    : 'Novo registro',
-              ),
-            ),
-          );
-        }
+        if (index < header.length) return header[index];
         if (entries.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Center(child: Text('Nenhum registro nesta aba.')),
           );
         }
-        final record = entries[index - toolbarCount];
+        final record = entries[index - header.length];
+        final draft = drafts[record.id];
         return Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -732,9 +841,11 @@ class _NotebookScreenState extends State<NotebookScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    if (notebook != null && record.id != null)
+                    if (record.id != null &&
+                        draft?.status != DraftStatus.queued)
                       IconButton(
-                        onPressed: () => _edit(notebook, record),
+                        onPressed: () =>
+                            _edit(notebook, record: record, draft: draft),
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Editar',
                       ),
@@ -794,16 +905,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
                 future: _privateNotes,
                 builder: (context, snapshot) => _gmNotes(snapshot),
               )
-            : FutureBuilder(
-                future: _notebook,
-                builder: (context, snapshot) {
-                  final notebook = snapshot.data;
-                  final records = _tab == _NotebookTab.sessions
-                      ? notebook?.sessions
-                      : notebook?.records;
-                  return _records(snapshot, records, notebook: notebook);
-                },
-              ),
+            : _records(),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _tab.index,
           onDestinationSelected: (index) =>

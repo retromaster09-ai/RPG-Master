@@ -63,6 +63,13 @@ revisão. A formatação de trechos intactos é preservada no salvamento.
 Para editar o caderno, o projeto Supabase precisa da migração de
 sincronização em `supabase/migrations/`, já aplicada no projeto de teste.
 
+Quando você já entrou na conta e abriu a campanha com internet, o app pode
+reabrir a última cópia do caderno e das crônicas sem conexão. O editor guarda
+rascunhos locais enquanto você digita. **Salvar** coloca a edição em
+**Aguardando envio**. O app verifica o servidor enquanto a campanha está
+aberta e ao voltar para ela. Se outra pessoa alterou o mesmo campo, a edição
+fica em **Revisar edição** com o texto preservado. A aba Mestre permanece online.
+
 Na aba **Mestre**, o criador da campanha pode criar e editar notas
 privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
 de cada nota para impedir que duas edições se sobrescrevam. O título,

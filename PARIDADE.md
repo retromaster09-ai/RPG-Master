@@ -7,7 +7,9 @@ código do `0.17.0-dev.4`. Os itens abaixo registram as diferenças confirmadas
 e servem como roteiro para retomar o trabalho.
 
 O `0.17.0-dev.5` completa a primeira etapa da ordem proposta. Para o uso
-diário, a próxima etapa é sincronização e proteção de rascunhos.
+diário, a versão `0.17.0-dev.6` recupera a cópia local, os rascunhos e a
+fila de envio dos textos compartilhados. Busca, filtros, datas e organização
+seguem na fila de recuperação de funções.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

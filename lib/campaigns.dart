@@ -16,6 +16,12 @@ class Campaign {
   final String id;
   final String name;
   final String ownerId;
+
+  Map<String, Object> toJson() => {
+    'id': id,
+    'name': name,
+    'created_by': ownerId,
+  };
 }
 
 typedef CampaignMember = ({String name, bool isOwner});
@@ -74,6 +80,15 @@ class CampaignRecord {
     answer: answer,
     confidence: confidence ?? 'Não se aplica',
   );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'title': title,
+    'body': body,
+    'answer': answer,
+    'category': category,
+    'confidence': confidence,
+  };
 }
 
 typedef NotebookText = ({
@@ -142,6 +157,14 @@ class Notebook {
   final List<Map<String, dynamic>> _entries;
   final int _revision;
   final int _epoch;
+
+  int get epoch => _epoch;
+
+  Map<String, Object> toJson() => {
+    'entries': _entries,
+    'revision': _revision,
+    'epoch': _epoch,
+  };
 }
 
 class NotebookConflict implements Exception {
@@ -328,11 +351,20 @@ class CampaignRepository {
     );
   }
 
-  Future<Notebook> readNotebook(String campaignId) async {
+  Future<Notebook> readNotebook(String campaignId, {Notebook? known}) async {
     final data = await _client.rpc<Object?>(
       'rpg_poll_notebook_v3',
-      params: {'p_campaign': campaignId, 'p_known': -1},
+      params: {'p_campaign': campaignId, 'p_known': known?._revision ?? -1},
     );
+    if (known != null &&
+        data is Map<String, dynamic> &&
+        data['entries'] == null) {
+      if (data['revision'] == known._revision &&
+          data['epoch'] == known._epoch) {
+        return known;
+      }
+      return readNotebook(campaignId);
+    }
     return Notebook.fromRpc(data);
   }
 
@@ -347,8 +379,12 @@ class CampaignRepository {
     if (original != null && original.id != id) {
       throw ArgumentError('O registro editado precisa ter o mesmo ID.');
     }
+    final author = _client.auth.currentUser?.id;
     var latest = notebook;
     for (var attempt = 0; attempt < 3; attempt++) {
+      if (_client.auth.currentUser?.id != author) {
+        throw const AuthException('A conta mudou durante o envio.');
+      }
       if (latest._epoch != notebook._epoch) {
         throw const NotebookConflict(
           'A campanha foi reiniciada durante a edição.',

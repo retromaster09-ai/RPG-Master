@@ -6,6 +6,8 @@ import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/main.dart';
+import 'package:rpg_master_set/notebook_sync.dart';
+import 'package:rpg_master_set/offline_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const campaign = Campaign(id: 'campaign', name: 'O farol', ownerId: 'master');
@@ -129,6 +131,134 @@ void main() {
     expect(find.text('Texto editado'), findsOneWidget);
   });
 
+  testWidgets('o texto digitado reaparece após fechar o editor sem salvar', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository();
+    final storage = MemoryOfflineStorage();
+    Widget app() => MaterialApp(
+      home: NotebookScreen(
+        campaign: campaign,
+        repository: repository,
+        isOwner: false,
+        offlineStorage: storage,
+        onBack: () {},
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), 'Ainda é um rascunho');
+    await tester.pumpAndSettle();
+    expect(find.text('Rascunho guardado neste aparelho.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    repository.online = false;
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rascunho neste aparelho'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ainda é um rascunho'), findsOneWidget);
+    expect(repository.saves, 0);
+  });
+
+  test('a fila sobrevive à reabertura e envia só as edições salvas', () async {
+    final repository = _EditorRepository();
+    final storage = MemoryOfflineStorage();
+    NotebookSync open() => NotebookSync(
+      repository: repository,
+      campaignId: campaign.id,
+      storage: storage,
+      isCurrentAccount: () => true,
+    );
+    final first = open();
+    await first.load();
+    final original = first.notebook!.records.single;
+    repository.online = false;
+    await first.keep(
+      NotebookDraft(
+        id: original.id!,
+        category: original.category!,
+        epoch: 0,
+        text: (
+          title: original.title,
+          body: 'Texto offline',
+          answer: '',
+          confidence: 'Não se aplica',
+        ),
+        original: original,
+        status: DraftStatus.queued,
+      ),
+    );
+    await first.keep(
+      const NotebookDraft(
+        id: 'local-draft',
+        category: 'Sessão',
+        epoch: 0,
+        text: (
+          title: 'Rascunho da sessão',
+          body: '',
+          answer: '',
+          confidence: 'Não se aplica',
+        ),
+      ),
+    );
+    first.dispose();
+
+    final second = open();
+    addTearDown(second.dispose);
+    await second.load();
+    expect(second.offline, isTrue);
+    expect(second.notebook!.records.single.body, 'Texto inicial');
+    expect(second.drafts.map((draft) => draft.text.title), [
+      'Pista',
+      'Rascunho da sessão',
+    ]);
+    expect(repository.saves, 0);
+    repository.online = true;
+    await Future.wait([second.refresh(), second.refresh()]);
+    expect(repository.saves, 1);
+    expect(second.notebook!.records.single.body, 'Texto offline');
+    expect(second.drafts.single.status, DraftStatus.editing);
+  });
+
+  test('fila de uma geração antiga mantém o texto sem reenviar', () async {
+    final repository = _EditorRepository();
+    final sync = NotebookSync(
+      repository: repository,
+      campaignId: campaign.id,
+      storage: MemoryOfflineStorage(),
+      isCurrentAccount: () => true,
+    );
+    addTearDown(sync.dispose);
+    await sync.load();
+    final original = sync.notebook!.records.single;
+    await sync.keep(
+      NotebookDraft(
+        id: original.id!,
+        category: original.category!,
+        epoch: 0,
+        text: (
+          title: original.title,
+          body: 'Texto antes do reset',
+          answer: '',
+          confidence: 'Não se aplica',
+        ),
+        original: original,
+        status: DraftStatus.queued,
+      ),
+    );
+    repository.epoch = 1;
+    await sync.refresh();
+    expect(repository.saves, 0);
+    expect(sync.drafts.single.status, DraftStatus.review);
+    expect(sync.drafts.single.text.body, 'Texto antes do reset');
+  });
+
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {
     final client = SupabaseClient(
       'https://example.invalid',
@@ -226,20 +356,26 @@ void main() {
 
 class _EditorRepository extends Fake implements CampaignRepository {
   String body = 'Texto inicial';
+  bool online = true;
+  int epoch = 0;
+  int saves = 0;
 
   @override
-  Future<Notebook> readNotebook(String campaignId) async => Notebook.fromRpc({
-    'revision': 1,
-    'epoch': 0,
-    'entries': [
-      {
-        'id': 'entry',
-        'title': 'Pista',
-        'body': body,
-        'category': 'Investigação',
-      },
-    ],
-  });
+  Future<Notebook> readNotebook(String campaignId, {Notebook? known}) async {
+    if (!online) throw http.ClientException('Sem conexão');
+    return Notebook.fromRpc({
+      'revision': saves + 1,
+      'epoch': epoch,
+      'entries': [
+        {
+          'id': 'entry',
+          'title': 'Pista',
+          'body': body,
+          'category': 'Investigação',
+        },
+      ],
+    });
+  }
 
   @override
   Future<void> saveNotebookRecord({
@@ -250,6 +386,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
     required NotebookText text,
     CampaignRecord? original,
   }) async {
+    saves++;
     body = text.body;
   }
 }

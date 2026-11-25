@@ -73,7 +73,19 @@ O [levantamento das funções do app anterior](PARIDADE.md) registra o que
 falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
 cadastro por usuário e senha, criação de mesa, entrada por código ou convite
 e consulta de participantes. A próxima etapa é o uso diário do caderno,
-começando por proteção de rascunhos e sincronização.
+com busca, filtros, datas e organização depois da proteção de rascunhos.
+
+O `0.17.0-dev.6` guarda localmente a lista de campanhas, a última revisão
+do caderno compartilhado e os rascunhos de texto. A chave é separada por
+projeto, conta e campanha. No Android, os dados são escritos em arquivos
+privados do app com substituição após gravação; na web, são armazenados no
+navegador. A primeira cópia exige conexão e uma sessão ativa. A fila guarda
+apenas edições em que a pessoa tocou **Salvar**. Com a campanha aberta, o app
+volta a verificar o servidor a cada oito segundos e ao retomar a tela.
+Uma entrada em envio fica disponível para editar após confirmação ou conflito.
+Rascunhos de uma geração anterior a um reset ficam para revisão. A aba Mestre
+continua online e usa apenas a sessão existente. O recurso usa as RPCs já
+implantadas no ambiente de teste.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas
