@@ -7,3 +7,6 @@
 key.properties
 .dart_tool/
 build/
+
+.flutter-plugins-dependencies
+*.iml

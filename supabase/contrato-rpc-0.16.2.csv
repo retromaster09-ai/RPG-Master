@@ -1,0 +1,6 @@
+funcao,argumentos,retorno
+rpg_gm_list_v2,p_campaign uuid,SETOF rpg_gm_notes
+rpg_gm_save_visual,"p_campaign uuid, p_id uuid, p_expected bigint, p_note jsonb",bigint
+rpg_poll_notebook_v3,"p_campaign uuid, p_known bigint",jsonb
+rpg_read_notebook,p_campaign uuid,jsonb
+rpg_save_notebook_v3,"p_campaign uuid, p_expected bigint, p_epoch bigint, p_entries jsonb",bigint

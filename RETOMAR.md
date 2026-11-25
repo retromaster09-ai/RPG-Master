@@ -9,7 +9,8 @@ chat. Leia também o README e o histórico Git.
   ARM64, pacote `com.rpgmaster.rpg_master`. O original foi assinado com
   chave de depuração. O código Dart original ainda não foi localizado.
 - O primeiro commit preservou os recursos visuais e as fontes do APK.
-  Este repositório ainda não contém um aplicativo Flutter executável.
+  O repositório agora contém a primeira implementação Flutter. O README
+  explica como executá-la com o SDK fixado.
 - O mestre tem acesso ao projeto Supabase de produção usado pelo APK.
   O banco tem dados de teste. O mestre exportou os cinco CSVs das tabelas
   conhecidas. O download das imagens de teste ficou opcional.
@@ -34,19 +35,22 @@ O APK faz referência aos buckets `rpg-notes` e `rpg-gm-private`.
 O caderno tem sincronização por revisão, com
 `rpg_poll_notebook_v3` e `rpg_save_notebook_v3`. A lista privada tem
 `rpg_gm_list_v2`. Preserve o controle de revisão ao reconstruir o fluxo
-de gravação. Os tipos dos argumentos aparecem no CSV, sem os nomes que
-o PostgREST espera e sem os tipos de retorno.
+de gravação. O CSV `supabase/contrato-rpc-0.16.2.csv` confirma os nomes
+usados pelo PostgREST e os tipos de retorno das cinco funções principais.
 
 ## Prioridades
 
-1. Executar `supabase/contrato-rpc.sql` no SQL Editor para confirmar nomes
-   de argumentos e tipos de retorno. Se o retorno for JSONB, confirmar o
-   formato com a definição apropriada ou uma amostra de teste. Preservar
-   as definições do banco para poder restaurá-lo em um ambiente separado.
-2. Reconstruir em Flutter a lista de campanhas, o caderno colaborativo,
-   as crônicas e o roteiro privado. Usar contas de teste de mestre e
-   jogador para verificar leitura e gravação concorrente no caderno e
-   verificar a proteção de notas e imagens privadas no servidor.
+1. A primeira implementação já usa `rpg_read_notebook(p_campaign)` e
+   `rpg_gm_list_v2(p_campaign)` para leitura, além da lista de campanhas.
+   Confirmar o formato real de `entries` e de suas crônicas. A consulta
+   `supabase/formato-caderno.sql` ajuda a reconhecer os campos sem ler
+   seus valores. Se necessário, usar uma amostra fictícia da mesma
+   versão do APK para validar o leitor.
+2. Testar em ambiente separado a leitura com contas de mestre e jogador.
+   Preservar as migrações do banco e verificar as políticas e a
+   autorização das funções com ambas as contas. Implementar a edição
+   com `p_expected`, `p_epoch` e `p_entries` e testar gravações
+   concorrentes antes de habilitar gravação de conteúdo existente.
 3. Adicionar login por nome de usuário e senha preservando o UUID de quem
    já tem conta. Na recuperação, o mestre autorizado aprova o pedido e
    envia o código pelo canal que desejar. O código expira, só pode ser
