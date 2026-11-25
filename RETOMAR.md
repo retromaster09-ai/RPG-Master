@@ -73,19 +73,27 @@ preserva `p_expected`, `p_epoch` e o JSON original. O editor preserva campos
 legados e itens na lixeira. Em caso de conflito no mesmo campo, mantém
 o rascunho e permite comparar com o texto salvo antes de reenviar.
 
-1. Validar em dois celulares o APK ARM64 `0.17.0-dev.1`, identificado
-   como **RPG Master Set Teste**. A compilação, a assinatura e o pacote
-   foram verificados. O APK usa um projeto Supabase separado e a
-   **Mesa de teste do APK**, com duas contas fictícias. As credenciais
-   ficam fora do repositório.
-2. Adicionar login por nome de usuário e senha preservando o UUID de quem
-   já tem conta. Na recuperação, o mestre autorizado aprova o pedido e
-   envia o código pelo canal que desejar. O código expira, só pode ser
-   usado uma vez e tem limite de tentativas. Definir a recuperação do
-   próprio mestre antes de substituir o fluxo antigo.
-3. Implementar depois iniciativa e condições, contagem de fúria,
-   concentração, fichas e VTT. No VTT, o jogador recebe somente as áreas
-   autorizadas, incluindo quando inspecionar o tráfego do próprio app.
+O mestre confirmou no teste do APK ARM64 `0.17.0-dev.1` em dois
+celulares que as alterações apareceram nos dois aparelhos e que a
+aba **Mestre** ficou disponível só para a conta do mestre. O teste foi
+feito no projeto Supabase separado. As credenciais ficam fora do Git.
+
+### Login por usuário e recuperação de senha
+
+- A tela de entrada deve pedir **nome de usuário e senha**. Vincular o
+  nome de usuário ao UUID de quem já tem conta para conservar suas
+  permissões e campanhas.
+- Em **Esqueci minha senha**, o jogador informa seu nome de usuário.
+  Ao aprovar o pedido, apenas o mestre autorizado recebe um código
+  temporário de uso único. O mestre pode repassá-lo por WhatsApp ou
+  outro canal. O jogador usa o código no app para escolher uma nova
+  senha. A recuperação deve funcionar sem servidor de e-mail.
+- Limitar tentativas e definir como o próprio mestre recupera a conta
+  antes de substituir o fluxo de login anterior.
+
+Depois ficam iniciativa e condições, contagem de fúria, concentração,
+fichas e VTT. No VTT, o jogador recebe somente as áreas autorizadas,
+inclusive quando inspeciona o tráfego do próprio app.
 
 ## Guardar e continuar
 
