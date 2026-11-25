@@ -112,8 +112,17 @@ O roteiro privado ganhou criação e edição de texto na versão
 `0.17.0-dev.3`, em Ideias, Cenas e Bastidores. A migração
 `20261125181256_rpg_try_save_gm_note` trata conflitos pela revisão e delega
 ao `rpg_gm_save_visual`. Foi aplicada no projeto de teste.
-Anexar imagens e criar categorias de personagem,
-reino e organização ficam para uma etapa seguinte.
+O mestre confirmou no celular que a aba **Mestre** aparece na campanha
+criada por ele e fica indisponível nas campanhas em que joga como convidado.
+
+A versão `0.17.0-dev.4` inclui páginas de leitura de Personagem, Reino e
+Organização. A classificação fica em `presentation.entryKind`, dentro da
+nota privada. As capas são convertidas em PNG, limitadas a 1.400 pixels no
+lado maior e salvas no bucket `rpg-gm-private` no caminho legado da campanha.
+O app baixa as imagens pela API autenticada do Storage. As notas anteriores
+continuam nos grupos Ideias, Cenas e Bastidores. As permissões do banco e
+do bucket são as já usadas pelo roteiro. As contas do teste automatizado
+são exclusivas dele, sem vincular as contas usadas pelo mestre no celular.
 
 Também ficam iniciativa e condições, contagem de fúria, concentração,
 fichas e VTT. No VTT, o jogador recebe somente as áreas autorizadas,

@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Campaign {
@@ -147,7 +149,27 @@ enum GmSection {
   final String label;
 }
 
-typedef GmNoteText = ({String title, String body, GmSection section});
+enum GmNoteKind {
+  note('Nota', 'Notas'),
+  character('Personagem', 'Personagens'),
+  kingdom('Reino', 'Reinos'),
+  organization('Organização', 'Organizações');
+
+  const GmNoteKind(this.label, this.plural);
+
+  final String label;
+  final String plural;
+}
+
+typedef GmNoteText = ({
+  String title,
+  String body,
+  GmSection section,
+  GmNoteKind kind,
+  String? coverHash,
+});
+
+final _gmCoverHash = RegExp(r'^[0-9a-f]{64}$');
 
 class GmNoteConflict implements Exception {
   const GmNoteConflict();
@@ -161,32 +183,64 @@ class GmNote {
   String get id => _row['id'] as String;
   int get revision => _row['revision'] as int;
 
-  GmNoteText get text => (
-    title: _row['title'] as String,
-    body: _row['body'] as String,
-    section: GmSection.values.byName(_row['section'] as String),
-  );
+  Map<String, dynamic> get _presentation =>
+      _row['presentation'] as Map<String, dynamic>? ?? const {};
+
+  GmNoteText get text {
+    final cover = _presentation['cover'];
+    final kind = GmNoteKind.values
+        .where((kind) => kind.name == _presentation['entryKind'])
+        .firstOrNull;
+    return (
+      title: _row['title'] as String,
+      body: _row['body'] as String,
+      section: GmSection.values.byName(_row['section'] as String),
+      kind: kind ?? GmNoteKind.note,
+      coverHash: cover is String && _gmCoverHash.hasMatch(cover) ? cover : null,
+    );
+  }
 
   Map<String, dynamic> _payload(GmNoteText draft) {
-    final presentation = _row['presentation'];
+    final before = text;
+    final presentation = _presentation;
     return {
       ..._newGmNotePayload(draft),
       for (final key in ['state', 'tags', 'cue', 'music', 'next_session'])
         key: _row[key],
-      if (draft.body != text.body &&
-          presentation is Map<String, dynamic> &&
-          presentation.containsKey('marks'))
+      if (draft.kind != before.kind ||
+          draft.coverHash != before.coverHash ||
+          (draft.body != before.body && presentation.containsKey('marks')))
         'presentation': {
+          ..._gmPresentation(draft),
           ...presentation,
-          'marks': _moveUnchangedMarks(
-            presentation['marks'],
-            text.body,
-            draft.body,
-          ),
+          'entryKind': draft.kind.name,
+          'cover': draft.coverHash,
+          if (draft.body != before.body)
+            'marks': _moveUnchangedMarks(
+              presentation['marks'],
+              before.body,
+              draft.body,
+            ),
         },
     };
   }
 }
+
+Map<String, Object?> _gmPresentation(GmNoteText draft) => {
+  'entryKind': draft.kind.name,
+  'paper': 'Leitura simples',
+  'marks': <Object>[],
+  'cover': draft.coverHash,
+  'coverLook': {
+    'shape': 'rounded',
+    'fill': true,
+    'border': false,
+    'zoom': 1,
+    'x': 0,
+    'y': 0,
+  },
+  'pictures': <Object>[],
+};
 
 Map<String, Object> _newGmNotePayload(GmNoteText draft) => {
   'title': draft.title.trim(),
@@ -311,16 +365,53 @@ class CampaignRepository {
         'p_campaign': campaign.id,
         'p_id': id,
         'p_expected': original?.revision ?? 0,
-        'p_note': original?._payload(draft) ?? _newGmNotePayload(draft),
+        'p_note':
+            original?._payload(draft) ??
+            {
+              ..._newGmNotePayload(draft),
+              if (draft.kind != GmNoteKind.note || draft.coverHash != null)
+                'presentation': _gmPresentation(draft),
+            },
       },
     );
     if (revision != null) return;
     final notes = await readGmNotes(campaign);
     final saved = notes.where((note) => note.id == id).firstOrNull;
     if (saved?.text !=
-        (title: draft.title.trim(), body: draft.body, section: draft.section)) {
+        (
+          title: draft.title.trim(),
+          body: draft.body,
+          section: draft.section,
+          kind: draft.kind,
+          coverHash: draft.coverHash,
+        )) {
       throw const GmNoteConflict();
     }
+  }
+
+  Future<Uint8List> readGmCover(Campaign campaign, String hash) {
+    _requireCampaignOwner(campaign);
+    if (!_gmCoverHash.hasMatch(hash)) throw ArgumentError.value(hash, 'hash');
+    return _client.storage
+        .from('rpg-gm-private')
+        .download('${campaign.id}/$hash.png');
+  }
+
+  Future<String> uploadGmCover(Campaign campaign, Uint8List png) async {
+    _requireCampaignOwner(campaign);
+    final hash = sha256.convert(png).toString();
+    try {
+      await _client.storage
+          .from('rpg-gm-private')
+          .uploadBinary(
+            '${campaign.id}/$hash.png',
+            png,
+            fileOptions: const FileOptions(contentType: 'image/png'),
+          );
+    } on StorageException catch (error) {
+      if (error.statusCode != '409' && error.error != 'Duplicate') rethrow;
+    }
+    return hash;
   }
 
   void _requireCampaignOwner(Campaign campaign) {

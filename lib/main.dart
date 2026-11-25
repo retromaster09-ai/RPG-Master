@@ -7,6 +7,7 @@ import 'account_screens.dart';
 import 'accounts.dart';
 import 'campaigns.dart';
 import 'gm_note_editor.dart';
+import 'gm_note_page.dart';
 import 'notebook_editor.dart';
 
 Future<void> main() async {
@@ -448,13 +449,25 @@ class _NotebookScreenState extends State<NotebookScreen> {
     });
   }
 
+  void _openGmNote(GmNote note) {
+    setState(() {
+      _editor = GmNotePage(
+        repository: widget.repository,
+        campaign: widget.campaign,
+        note: note,
+        onBack: _closeGmEditor,
+        onEdit: () => _editGmNote(note),
+      );
+    });
+  }
+
   void _editGmNote([GmNote? note]) {
     setState(() {
       _editor = GmNoteEditor(
         repository: widget.repository,
         campaign: widget.campaign,
         note: note,
-        onClose: _closeGmEditor,
+        onClose: note == null ? _closeGmEditor : () => _openGmNote(note),
         onSaved: () {
           _closeGmEditor();
           ScaffoldMessenger.of(
@@ -478,9 +491,17 @@ class _NotebookScreenState extends State<NotebookScreen> {
       return const Center(child: Text('Não foi possível abrir o roteiro.'));
     }
     final notes = snapshot.requireData;
-    final sections = <GmSection, List<GmNote>>{};
+    final sections = <String, List<GmNote>>{
+      for (final kind in GmNoteKind.values)
+        if (kind != GmNoteKind.note) kind.plural: [],
+      for (final section in GmSection.values) section.label: [],
+    };
     for (final note in notes) {
-      (sections[note.text.section] ??= []).add(note);
+      final text = note.text;
+      final label = text.kind == GmNoteKind.note
+          ? text.section.label
+          : text.kind.plural;
+      sections[label]!.add(note);
     }
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -490,7 +511,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
           child: FilledButton.icon(
             onPressed: _editGmNote,
             icon: const Icon(Icons.add),
-            label: const Text('Nova nota privada'),
+            label: const Text('Nova nota ou página'),
           ),
         ),
         if (notes.isEmpty)
@@ -498,16 +519,16 @@ class _NotebookScreenState extends State<NotebookScreen> {
             padding: EdgeInsets.all(16),
             child: Center(child: Text('Seu roteiro está vazio.')),
           ),
-        for (final section in GmSection.values)
-          if (sections[section] case final entries?) ...[
+        for (final section in sections.entries)
+          if (section.value.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
               child: Text(
-                section.label,
+                section.key,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            for (final note in entries)
+            for (final note in section.value)
               Card(
                 child: ListTile(
                   title: Text(note.text.title),
@@ -518,8 +539,8 @@ class _NotebookScreenState extends State<NotebookScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                  trailing: const Icon(Icons.edit_outlined),
-                  onTap: () => _editGmNote(note),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openGmNote(note),
                 ),
               ),
           ],

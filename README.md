@@ -55,6 +55,10 @@ privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
 de cada nota para impedir que duas edições se sobrescrevam. O título,
 o texto e a seção são editáveis. As funções legadas do Supabase
 autorizam a leitura e a gravação, sem exigir senha extra dentro do app.
+Em **Nova nota ou página**, escolha **Personagem**, **Reino** ou
+**Organização** para incluir uma página no grupo correspondente. É possível
+escolher uma capa PNG ou JPEG no dispositivo. A capa fica no bucket privado
+da campanha e aparece ao abrir a página.
 
 A recuperação de senha pelo mestre e pelo código de reserva está ativa
 no Supabase de teste. Os passos de configuração, implantação e teste

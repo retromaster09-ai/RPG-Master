@@ -121,20 +121,37 @@ void main() {
     }
     final legacy = (await gmRepo.readGmNotes(campaign)).single;
     expect(legacy.text.title, 'Uma nota privada de teste');
+    expect(legacy.text.kind, GmNoteKind.note);
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKx8AAAAASUVORK5CYII=',
+    );
+    final coverHash = await gmRepo.uploadGmCover(campaign, png);
+    expect(await gmRepo.uploadGmCover(campaign, png), coverHash);
     final id = newNotebookRecordId();
-    const draft = (
+    final draft = (
       title: 'Segredo',
       body: 'Texto inicial',
       section: GmSection.idea,
+      kind: GmNoteKind.character,
+      coverHash: coverHash,
     );
     await gmRepo.saveGmNote(campaign: campaign, id: id, draft: draft);
     await gmRepo.saveGmNote(campaign: campaign, id: id, draft: draft);
     expect((await gmRepo.readGmNotes(campaign)).length, 2);
+    expect(
+      (await gmRepo.readGmNotes(campaign))
+          .singleWhere((note) => note.id == id)
+          .text,
+      draft,
+    );
+    expect(await gmRepo.readGmCover(campaign, coverHash), orderedEquals(png));
 
     const revised = (
       title: 'Uma nota revisada',
       body: 'Texto novo',
       section: GmSection.backstage,
+      kind: GmNoteKind.note,
+      coverHash: null,
     );
     await gmRepo.saveGmNote(
       campaign: campaign,
@@ -179,12 +196,13 @@ void main() {
       throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
     );
 
-    final png = base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKx8AAAAASUVORK5CYII=',
-    );
     final name = '$campaignId/${List.filled(64, 'a').join()}.png';
     final gmBucket = gm.storage.from('rpg-gm-private');
     final playerBucket = player.storage.from('rpg-gm-private');
+    await expectLater(
+      playerBucket.download('$campaignId/$coverHash.png'),
+      throwsA(isA<StorageException>()),
+    );
     await gmBucket.uploadBinary(
       name,
       png,
