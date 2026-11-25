@@ -69,6 +69,10 @@ as autorizações de cada função tocada e rode os testes novamente.
 
 ## Prioridades
 
+O [levantamento das funções do app anterior](PARIDADE.md) registra o que
+falta na reconstrução e a ordem proposta. A primeira etapa é completar
+criação de campanhas e entrada de jogadores pelo próprio app.
+
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas
 para o editor. A migração foi aplicada no projeto de teste. A chamada
