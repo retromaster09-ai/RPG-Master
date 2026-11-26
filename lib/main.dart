@@ -15,6 +15,7 @@ import 'gm_note_page.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
 import 'notebook_editor.dart';
+import 'notebook_page.dart';
 import 'notebook_sync.dart';
 import 'offline_storage.dart';
 import 'organize_cards.dart';
@@ -603,6 +604,16 @@ const _notebookSectionIcons = {
   _hypothesesView: Icons.lightbulb_outline,
 };
 
+const _notebookSectionArt = {
+  'Missão': 'missions',
+  'Investigação': 'clues',
+  'Personagem': 'people',
+  'Lugar': 'places',
+  'Objeto': 'relics',
+  'Carta': 'letters',
+  _hypothesesView: 'theories',
+};
+
 enum _RecordAction { duplicate, trash }
 
 class NotebookScreen extends StatefulWidget {
@@ -727,6 +738,20 @@ class _NotebookScreenState extends State<NotebookScreen>
     } else {
       unawaited(_sync.refresh());
     }
+  }
+
+  void _readRecord(Notebook notebook, CampaignRecord record) {
+    setState(() {
+      _editor = NotebookPage(
+        record: record,
+        repository: widget.repository,
+        campaignId: widget.campaign.id,
+        onBack: () => setState(() => _editor = null),
+        onEdit: record.id == null
+            ? null
+            : () => _edit(notebook, record: record),
+      );
+    });
   }
 
   void _edit(
@@ -1246,16 +1271,60 @@ class _NotebookScreenState extends State<NotebookScreen>
             style: Theme.of(context).textTheme.headlineSmall,
           ),
         ),
-        for (final section in sections)
-          Card(
+        for (final section in sections) _sectionCard(section),
+      ],
+    );
+  }
+
+  Widget _sectionCard(String section) {
+    final art = _notebookSectionArt[section];
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Stack(
+        children: [
+          if (art != null)
+            Positioned.fill(
+              child: Image.asset(
+                'assets/notebook/$art.webp',
+                fit: BoxFit.cover,
+              ),
+            ),
+          if (art != null)
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xdd18110e),
+                      Color(0x9c18110e),
+                      Color(0x2418110e),
+                    ],
+                    stops: [0, 0.64, 1],
+                  ),
+                ),
+              ),
+            ),
+          Material(
+            type: MaterialType.transparency,
             child: ListTile(
+              minTileHeight: 102,
+              textColor: art == null ? null : const Color(0xfff8ecda),
+              iconColor: art == null ? null : const Color(0xfff8d8a3),
               leading: Icon(_notebookSectionIcons[section] ?? Icons.notes),
-              title: Text(_notebookSections[section] ?? section),
+              titleTextStyle: Theme.of(context).textTheme.titleLarge,
+              title: Text(
+                _notebookSections[section] ?? section,
+                style: art == null
+                    ? null
+                    : const TextStyle(color: Color(0xfff8ecda)),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _openSection(section),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1517,110 +1586,136 @@ class _NotebookScreenState extends State<NotebookScreen>
         final canChange =
             record.id != null && !_missionWrites.contains(record.id);
         final card = Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (record.coverHash case final hash?)
+                InkWell(
+                  onTap: () => _readRecord(notebook, record),
+                  child: NotebookCoverImage(
+                    repository: widget.repository,
+                    campaignId: widget.campaign.id,
+                    hash: hash,
+                    height: 132,
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (plan != null)
-                      Tooltip(
-                        message: plan.completed
-                            ? 'Reabrir missão'
-                            : 'Marcar missão como concluída',
-                        child: Checkbox(
-                          value: plan.completed,
-                          onChanged: canChange
-                              ? (checked) => _changeMission(
-                                  notebook,
-                                  record,
-                                  plan.copyWith(
-                                    status: checked == true
-                                        ? MissionStatus.completed
-                                        : MissionStatus.inProgress,
-                                  ),
-                                )
-                              : null,
+                    Row(
+                      children: [
+                        if (plan != null)
+                          Tooltip(
+                            message: plan.completed
+                                ? 'Reabrir missão'
+                                : 'Marcar missão como concluída',
+                            child: Checkbox(
+                              value: plan.completed,
+                              onChanged: canChange
+                                  ? (checked) => _changeMission(
+                                      notebook,
+                                      record,
+                                      plan.copyWith(
+                                        status: checked == true
+                                            ? MissionStatus.completed
+                                            : MissionStatus.inProgress,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _readRecord(notebook, record),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Text(
+                                record.title,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (record.id != null)
+                          IconButton(
+                            onPressed: () => _edit(notebook, record: record),
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: 'Editar',
+                          ),
+                        if (record.id != null)
+                          PopupMenuButton<_RecordAction>(
+                            enabled: !_trashBusy,
+                            tooltip: 'Opções do registro',
+                            onSelected: (action) {
+                              switch (action) {
+                                case _RecordAction.duplicate:
+                                  _duplicate((id) async {
+                                    await widget.repository.duplicateRecord(
+                                      widget.campaign.id,
+                                      notebook,
+                                      record,
+                                      id,
+                                    );
+                                    await _sync.refreshAfterChange();
+                                  }, () {});
+                                case _RecordAction.trash:
+                                  _moveToTrash(record.title, () async {
+                                    await _setRecordTrash(
+                                      notebook,
+                                      record,
+                                      trashed: true,
+                                    );
+                                    await _sync.refreshAfterChange();
+                                  }, () {});
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: _RecordAction.duplicate,
+                                child: Text('Duplicar'),
+                              ),
+                              PopupMenuItem(
+                                value: _RecordAction.trash,
+                                child: Text('Mover para a lixeira'),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    if (isSession && record.dates.isNotEmpty)
+                      Text(
+                        record.dates.map(sessionDateLabel).join(' · '),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                    Expanded(
-                      child: Text(
-                        record.title,
-                        style: Theme.of(context).textTheme.titleLarge,
+                    if (plan != null) MissionSummary(plan: plan),
+                    if (record.confidence case final confidence?)
+                      Text('Confiança · $confidence'),
+                    if (record.body.isNotEmpty)
+                      InkWell(
+                        onTap: () => _readRecord(notebook, record),
+                        child: Text(
+                          record.body,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    if (record.id != null)
-                      IconButton(
-                        onPressed: () => _edit(notebook, record: record),
-                        icon: const Icon(Icons.edit_outlined),
-                        tooltip: 'Editar',
-                      ),
-                    if (record.id != null)
-                      PopupMenuButton<_RecordAction>(
-                        enabled: !_trashBusy,
-                        tooltip: 'Opções do registro',
-                        onSelected: (action) {
-                          switch (action) {
-                            case _RecordAction.duplicate:
-                              _duplicate((id) async {
-                                await widget.repository.duplicateRecord(
-                                  widget.campaign.id,
-                                  notebook,
-                                  record,
-                                  id,
-                                );
-                                await _sync.refreshAfterChange();
-                              }, () {});
-                            case _RecordAction.trash:
-                              _moveToTrash(record.title, () async {
-                                await _setRecordTrash(
-                                  notebook,
-                                  record,
-                                  trashed: true,
-                                );
-                                await _sync.refreshAfterChange();
-                              }, () {});
-                          }
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: _RecordAction.duplicate,
-                            child: Text('Duplicar'),
-                          ),
-                          PopupMenuItem(
-                            value: _RecordAction.trash,
-                            child: Text('Mover para a lixeira'),
-                          ),
-                        ],
+                    if (plan != null)
+                      MissionChecklist(
+                        plan: plan,
+                        onChanged: canChange
+                            ? (updated) =>
+                                  _changeMission(notebook, record, updated)
+                            : null,
                       ),
                   ],
                 ),
-                if (isSession && record.dates.isNotEmpty)
-                  Text(
-                    record.dates.map(sessionDateLabel).join(' · '),
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                if (plan != null) MissionSummary(plan: plan),
-                if (record.confidence case final confidence?)
-                  Text('Confiança · $confidence'),
-                if (record.body.isNotEmpty) SelectableText(record.body),
-                if (record.answer.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  const Text('Resposta'),
-                  SelectableText(record.answer),
-                ],
-                if (plan != null)
-                  MissionChecklist(
-                    plan: plan,
-                    onChanged: canChange
-                        ? (updated) => _changeMission(notebook, record, updated)
-                        : null,
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
         return ReorderableDelayedDragStartListener(

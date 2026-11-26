@@ -36,6 +36,7 @@ class NotebookDraft {
     required this.text,
     this.dates,
     this.mission,
+    this.coverPng,
     this.original,
     this.status = DraftStatus.editing,
     this.message,
@@ -50,6 +51,9 @@ class NotebookDraft {
     dates: data['dates'] == null ? null : readSessionDates(data['dates']),
     mission: data['mission'] is Map<String, dynamic>
         ? MissionPlan.fromJson(data['mission'] as Map<String, dynamic>)
+        : null,
+    coverPng: data['coverPng'] is String
+        ? base64Decode(data['coverPng'] as String)
         : null,
     original: data['original'] == null
         ? null
@@ -67,6 +71,7 @@ class NotebookDraft {
   final NotebookText text;
   final List<String>? dates;
   final MissionPlan? mission;
+  final Uint8List? coverPng;
   final CampaignRecord? original;
   final DraftStatus status;
   final String? message;
@@ -82,6 +87,7 @@ class NotebookDraft {
         text: text,
         dates: dates,
         mission: mission,
+        coverPng: coverPng,
         original: original,
         status: status,
         message: conflict?.message,
@@ -101,6 +107,7 @@ class NotebookDraft {
     'original': original?.toJson(),
     'dates': dates,
     'mission': mission?.toJson(),
+    if (coverPng != null) 'coverPng': base64Encode(coverPng!),
     'status': status.name,
     'message': message,
     'remote': remote?.toJson(),
@@ -290,6 +297,7 @@ class NotebookSync extends ChangeNotifier {
             original: draft.original,
             dates: draft.dates,
             mission: draft.mission,
+            coverPng: draft.coverPng,
           )
           .timeout(notebookRequestTimeout);
       if (!_active) return;

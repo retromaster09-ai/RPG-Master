@@ -1,7 +1,7 @@
 name: rpg_master_set
 description: Caderno colaborativo e roteiro privado de campanha.
 publish_to: none
-version: 0.17.0-dev.13+32
+version: 0.17.0-dev.14+33
 
 environment:
   sdk: ^3.14.0
@@ -29,6 +29,7 @@ flutter:
   assets:
     - assets/brand/emblem.png
     - assets/brand/adventurers.png
+    - assets/notebook/
   fonts:
     - family: Crimson Text
       fonts:

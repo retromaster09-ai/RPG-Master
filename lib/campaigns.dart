@@ -98,6 +98,7 @@ class CampaignRecord {
     this.deletedAt,
     this.orders = const {},
     this.mission,
+    this.coverHash,
   });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
@@ -115,6 +116,7 @@ class CampaignRecord {
       dates: readSessionDates(json['dates']),
       deletedAt: json['deletedAt'] as String?,
       orders: Map.unmodifiable(_orders(json['orders'])),
+      coverHash: _readNotebookCoverHash(json['imagePath']),
       mission: category == 'Missão' ? MissionPlan.fromJson(json) : null,
       confidence:
           confidence is String &&
@@ -135,6 +137,7 @@ class CampaignRecord {
   final String? deletedAt;
   final Map<String, dynamic> orders;
   final MissionPlan? mission;
+  final String? coverHash;
 
   int? orderIndex(String key) => _order(orders, key)?['index'] as int?;
 
@@ -155,8 +158,16 @@ class CampaignRecord {
     'dates': dates,
     'deletedAt': deletedAt,
     'orders': orders,
+    if (coverHash != null) 'imagePath': 'rpg-media:$coverHash',
     if (mission case final plan?) ...plan.toJson(),
   };
+}
+
+String? _readNotebookCoverHash(Object? path) {
+  const prefix = 'rpg-media:';
+  if (path is! String || !path.startsWith(prefix)) return null;
+  final hash = path.substring(prefix.length);
+  return _coverHash.hasMatch(hash) ? hash : null;
 }
 
 typedef NotebookText = ({
@@ -392,7 +403,7 @@ class CampaignRepository {
   }
 
   Future<Uint8List> readCampaignCover(Campaign campaign, String hash) =>
-      _readCover(campaign, hash, 'rpg-notes');
+      _readCover(campaign.id, hash, 'rpg-notes');
 
   Future<void> setCampaignCover(
     Campaign campaign,
@@ -403,7 +414,7 @@ class CampaignRepository {
     _requireCampaignOwner(campaign);
     final selected = png == null
         ? hash
-        : await _uploadCover(campaign, png, 'rpg-notes');
+        : await _uploadCover(campaign.id, png, 'rpg-notes');
     final revision = await _client.rpc<int?>(
       'rpg_try_set_campaign_cover',
       params: {
@@ -476,6 +487,9 @@ class CampaignRepository {
     return Notebook.fromRpc(data);
   }
 
+  Future<Uint8List> readNotebookCover(String campaignId, String hash) =>
+      _readCover(campaignId, hash, 'rpg-notes');
+
   Future<void> saveNotebookRecord({
     required String campaignId,
     required Notebook notebook,
@@ -485,11 +499,18 @@ class CampaignRepository {
     CampaignRecord? original,
     List<String>? dates,
     MissionPlan? mission,
+    Uint8List? coverPng,
   }) async {
     if (original != null && original.id != id) {
       throw ArgumentError('O registro editado precisa ter o mesmo ID.');
     }
     final author = _client.auth.currentUser?.id;
+    // Um buffer vazio representa a remoção explícita da capa.
+    final String? newCover = coverPng == null
+        ? null
+        : coverPng.isEmpty
+        ? ''
+        : await _uploadCover(campaignId, coverPng, 'rpg-notes');
     var latest = notebook;
     for (var attempt = 0; attempt < 3; attempt++) {
       if (_client.auth.currentUser?.id != author) {
@@ -508,6 +529,7 @@ class CampaignRepository {
           if (entries[index]['deletedAt'] == null &&
               existing.text == text &&
               existing.category == category &&
+              (newCover == null || newCover == (existing.coverHash ?? '')) &&
               (dates == null || listEquals(existing.dates, dates)) &&
               (mission == null || _sameMission(mission, existing.mission))) {
             return;
@@ -517,7 +539,9 @@ class CampaignRepository {
             current: existing,
           );
         }
-        entries.add(_newEntry(id, category, text, dates ?? const [], mission));
+        entries.add(
+          _newEntry(id, category, text, dates ?? const [], mission, newCover),
+        );
       } else {
         if (index < 0 || entries[index]['deletedAt'] != null) {
           throw const NotebookConflict(
@@ -530,6 +554,7 @@ class CampaignRepository {
           text,
           dates,
           mission,
+          newCover,
         );
         if (merged.isEmpty) return;
         entries[index] = {...entries[index], ...merged};
@@ -837,21 +862,21 @@ class CampaignRepository {
 
   Future<Uint8List> readGmCover(Campaign campaign, String hash) {
     _requireCampaignOwner(campaign);
-    return _readCover(campaign, hash, 'rpg-gm-private');
+    return _readCover(campaign.id, hash, 'rpg-gm-private');
   }
 
-  Future<Uint8List> _readCover(Campaign campaign, String hash, String bucket) {
+  Future<Uint8List> _readCover(String campaignId, String hash, String bucket) {
     if (!_coverHash.hasMatch(hash)) throw ArgumentError.value(hash, 'hash');
-    return _client.storage.from(bucket).download('${campaign.id}/$hash.png');
+    return _client.storage.from(bucket).download('$campaignId/$hash.png');
   }
 
   Future<String> uploadGmCover(Campaign campaign, Uint8List png) {
     _requireCampaignOwner(campaign);
-    return _uploadCover(campaign, png, 'rpg-gm-private');
+    return _uploadCover(campaign.id, png, 'rpg-gm-private');
   }
 
   Future<String> _uploadCover(
-    Campaign campaign,
+    String campaignId,
     Uint8List png,
     String bucket,
   ) async {
@@ -860,7 +885,7 @@ class CampaignRepository {
       await _client.storage
           .from(bucket)
           .uploadBinary(
-            '${campaign.id}/$hash.png',
+            '$campaignId/$hash.png',
             png,
             fileOptions: const FileOptions(contentType: 'image/png'),
           );
@@ -897,17 +922,18 @@ String _copyTitle(String title, {int? maxLength}) {
       suffix;
 }
 
-Map<String, Object> _mergeEntry(
+Map<String, Object?> _mergeEntry(
   Map<String, dynamic> entry,
   CampaignRecord original,
   NotebookText draft,
   List<String>? dates,
   MissionPlan? mission,
+  String? newCover,
 ) {
   final current = CampaignRecord.fromJson(entry);
   final remote = current.text;
   final beforeText = original.text;
-  final changes = <String, Object>{};
+  final changes = <String, Object?>{};
 
   for (final (name, label, before, saved, desired) in [
     ('title', 'o título', beforeText.title, remote.title, draft.title),
@@ -933,6 +959,17 @@ Map<String, Object> _mergeEntry(
       final marksKey = '${name}Marks';
       changes[marksKey] = _moveUnchangedMarks(entry[marksKey], saved, desired);
     }
+  }
+  if (newCover != null &&
+      newCover != (original.coverHash ?? '') &&
+      newCover != (current.coverHash ?? '')) {
+    if (original.coverHash != current.coverHash) {
+      throw NotebookConflict(
+        'Outra pessoa alterou a capa. Seu rascunho continua aberto.',
+        current: current,
+      );
+    }
+    changes['imagePath'] = newCover.isEmpty ? null : 'rpg-media:$newCover';
   }
   if (dates != null &&
       !listEquals(dates, original.dates) &&
@@ -1012,6 +1049,7 @@ Map<String, Object> _newEntry(
   NotebookText text,
   List<String> dates,
   MissionPlan? mission,
+  String? newCover,
 ) => {
   'id': id,
   'category': category,
@@ -1019,6 +1057,8 @@ Map<String, Object> _newEntry(
   'body': text.body,
   'answer': text.answer,
   'confidence': text.confidence,
+  if (newCover != null && newCover.isNotEmpty)
+    'imagePath': 'rpg-media:$newCover',
   'paper': 'Leitura simples',
   'source': '',
   'resolution': 'open',

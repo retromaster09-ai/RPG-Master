@@ -1,12 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show Uint8List, listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
+import 'cover_picker.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
 import 'notebook_sync.dart';
+import 'notebook_page.dart';
 import 'session_dates.dart';
 
 class NotebookEditor extends StatefulWidget {
@@ -82,6 +84,8 @@ class _NotebookEditorState extends State<NotebookEditor> {
   late MissionPlan _mission = _startingMission;
   late List<String> _dates =
       widget.savedDraft?.dates ?? _baseRecord?.dates ?? const [];
+  late Uint8List? _coverPng = widget.savedDraft?.coverPng;
+  bool _choosingCover = false;
   bool _saving = false;
   bool _choosingDate = false;
   bool _confirmingClose = false;
@@ -95,6 +99,69 @@ class _NotebookEditorState extends State<NotebookEditor> {
     answer: _answer.text,
     confidence: _confidence,
   );
+
+  Future<void> _chooseCover() async {
+    if (_saving || _choosingCover) return;
+    setState(() => _choosingCover = true);
+    try {
+      final image = await pickCoverImage(maxPngBytes: 1024 * 1024);
+      if (!mounted || image == null) return;
+      setState(() => _coverPng = image);
+      await _persistDraft();
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } on Exception catch (_) {
+      if (mounted) setState(() => _error = 'Não foi possível abrir a imagem.');
+    } finally {
+      if (mounted) setState(() => _choosingCover = false);
+    }
+  }
+
+  Widget _coverFields() {
+    final selected = _coverPng;
+    final existing = _baseRecord?.coverHash;
+    final hasCover = selected == null ? existing != null : selected.isNotEmpty;
+    final disabled = _saving || _choosingCover;
+    return ExpansionTile(
+      title: const Text('Capa do registro'),
+      initiallyExpanded: hasCover,
+      children: [
+        if (hasCover)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: selected != null
+                ? Image.memory(selected, height: 150, fit: BoxFit.contain)
+                : NotebookCoverImage(
+                    repository: widget.sync.repository,
+                    campaignId: widget.sync.campaignId,
+                    hash: existing!,
+                    height: 150,
+                    fit: BoxFit.contain,
+                  ),
+          ),
+        Wrap(
+          spacing: 8,
+          children: [
+            TextButton.icon(
+              onPressed: disabled ? null : _chooseCover,
+              icon: const Icon(Icons.image_outlined),
+              label: Text(hasCover ? 'Trocar capa' : 'Escolher capa'),
+            ),
+            if (hasCover)
+              TextButton(
+                onPressed: disabled
+                    ? null
+                    : () {
+                        setState(() => _coverPng = Uint8List(0));
+                        unawaited(_persistDraft());
+                      },
+                child: const Text('Remover capa'),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   void dispose() {
@@ -111,6 +178,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     text: _draft,
     dates: widget.isSession ? _dates : null,
     mission: _category == 'Missão' ? _mission : null,
+    coverPng: _coverPng,
     original: _baseRecord,
     status: status,
     message: status == DraftStatus.editing ? _error : null,
@@ -132,9 +200,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   Future<void> _close() async {
-    if (_saving || _confirmingClose) return;
+    if (_saving || _confirmingClose || _choosingCover) return;
     if (widget.savedDraft == null &&
         !_savedLocally &&
+        _coverPng == null &&
         _draft == _original &&
         (_category != 'Missão' || identical(_mission, _startingMission)) &&
         listEquals(_dates, _baseRecord?.dates ?? const []) &&
@@ -198,7 +267,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   Future<void> _discard() async {
-    if (_saving || _confirmingClose) return;
+    if (_saving || _confirmingClose || _choosingCover) return;
     _confirmingClose = true;
     final discard = await showDialog<bool>(
       context: context,
@@ -233,7 +302,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || _choosingCover) return;
     final draft = _draft;
     if ([
       draft.title,
@@ -382,6 +451,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                         unawaited(_persistDraft());
                       },
               ),
+            _coverFields(),
             TextField(
               controller: _answer,
               enabled: !_saving,

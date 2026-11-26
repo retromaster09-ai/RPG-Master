@@ -19,7 +19,8 @@ O `0.17.0-dev.11` recupera as etapas, os estados e o progresso das missões.
 O `0.17.0-dev.12` deixa as caixas e as etapas acionáveis nos cartões e
 permite arrastar os cartões na própria lista. O `0.17.0-dev.13` abre o Caderno em um índice e
 separa missões ativas das concluídas. A referência para importar Word
-e PDF está em [MODELO_CADERNO.md](MODELO_CADERNO.md).
+e PDF está em [MODELO_CADERNO.md](MODELO_CADERNO.md). O `0.17.0-dev.14`
+adiciona capas compartilhadas, índice ilustrado e páginas de leitura.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

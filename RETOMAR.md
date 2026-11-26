@@ -7,6 +7,12 @@ e separa missões ativas das concluídas pelo estado já salvo.
 O mesmo arquivo descreve como interpretar a estrutura para importar Word
 e PDF em uma etapa futura.
 
+A versão 0.17.0-dev.14 acrescenta índice ilustrado, capas nos registros
+compartilhados e páginas de leitura. Os dados de capa reutilizam
+`imagePath` e o bucket de membros existente, sem migração. A etapa
+seguinte é restaurar a formatação, os estilos de página e as imagens
+entre parágrafos.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

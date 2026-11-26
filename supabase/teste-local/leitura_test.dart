@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rpg_master_set/accounts.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/missions.dart';
+import 'package:rpg_master_set/notebook_sync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -202,6 +204,52 @@ void main() {
       expect(notebook.records.single.title, 'Uma pista');
       expect(notebook.sessions.single.title, 'A primeira sessão');
     }
+    final recordPng = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAD0lEQVR4nGM0Cq5gYGAAAAS5AP+m9miSAAAAAElFTkSuQmCC',
+    );
+    final notebookBeforeCover = await playerRepo.readNotebook(campaignId);
+    final uncovered = notebookBeforeCover.records.single;
+    final playerDraft = NotebookDraft(
+      id: uncovered.id!,
+      category: uncovered.category!,
+      epoch: notebookBeforeCover.epoch,
+      text: uncovered.text,
+      original: uncovered,
+      coverPng: recordPng,
+    );
+    final restoredDraft = NotebookDraft.fromJson(
+      jsonDecode(jsonEncode(playerDraft.toJson())) as Map<String, dynamic>,
+    );
+    await playerRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: notebookBeforeCover,
+      id: restoredDraft.id,
+      category: restoredDraft.category,
+      text: restoredDraft.text,
+      original: restoredDraft.original,
+      coverPng: restoredDraft.coverPng,
+    );
+    final notebookWithCover = await gmRepo.readNotebook(campaignId);
+    final covered = notebookWithCover.records.single;
+    expect(covered.coverHash, isNotNull);
+    expect(covered.coverHash, isNot(campaignCoverHash));
+    expect(
+      await gmRepo.readNotebookCover(campaignId, covered.coverHash!),
+      recordPng,
+    );
+    await gmRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: notebookWithCover,
+      id: covered.id!,
+      category: covered.category!,
+      text: covered.text,
+      original: covered,
+      coverPng: Uint8List(0),
+    );
+    expect(
+      (await playerRepo.readNotebook(campaignId)).records.single.coverHash,
+      isNull,
+    );
     final sessionBaseline = await gmRepo.readNotebook(campaignId);
     final datedSession = sessionBaseline.sessions.single;
     expect(datedSession.dates, ['2026-01-09T00:00:00.000']);

@@ -23,6 +23,18 @@ cartão publicado e arraste para reorganizar. Ao reorganizar, os cartões que es
 fora da busca mantêm suas posições. Nas Crônicas, arrastar muda para
 ordem manual. No Mestre, o gesto reorganiza as notas dentro da seção.
 
+## Capas e páginas de leitura
+
+O índice tem uma ilustração por seção. Toque no título de um registro
+ou na capa para abrir a página completa. Na edição, abra **Capa do registro**
+para escolher, trocar ou remover um PNG ou JPEG. A capa é opcional e usa
+o mesmo armazenamento privado da campanha que a capa da mesa. Os dados
+usam o campo legado `imagePath`. A imagem selecionada fica no rascunho
+local até o envio, junto do texto. A área Mestre usa armazenamento separado.
+
+A formatação de trechos, o estilo Pergaminho e as imagens entre parágrafos
+continuam previstos para a próxima etapa do editor.
+
 ## Referência para implementar a importação Word e PDF
 
 - Reconhecer títulos de seção por estilo e texto, inclusive variações de

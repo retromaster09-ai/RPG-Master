@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -298,6 +299,34 @@ void main() {
     expect(find.text('Pista'), findsNothing);
     await tester.tap(find.byTooltip('Limpar busca'));
     await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsOneWidget);
+  });
+
+  testWidgets('abre o registro completo ao tocar no cartão', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository()..body = 'Informação detalhada';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SelectableText), findsNothing);
+    await tester.tap(find.text('Pista'));
+    await tester.pumpAndSettle();
+    expect(find.text('Informação detalhada'), findsOneWidget);
+    expect(find.byType(SelectableText), findsNWidgets(2));
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Mistérios e pistas'), findsOneWidget);
     expect(find.text('Pista'), findsOneWidget);
   });
 
@@ -798,6 +827,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
     CampaignRecord? original,
     List<String>? dates,
     MissionPlan? mission,
+    Uint8List? coverPng,
   }) async {
     saves++;
     body = text.body;
