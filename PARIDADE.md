@@ -17,14 +17,15 @@ organização manual e duplicação. Lixeira offline e exclusão definitiva
 continuam pendentes.
 O `0.17.0-dev.11` recupera as etapas, os estados e o progresso das missões.
 O `0.17.0-dev.12` deixa as caixas e as etapas acionáveis nos cartões e
-permite arrastar os cartões na própria lista. Os filtros e a referência
-para importar Word e PDF estão em [MODELO_CADERNO.md](MODELO_CADERNO.md).
+permite arrastar os cartões na própria lista. O `0.17.0-dev.13` abre o Caderno em um índice e
+separa missões ativas das concluídas. A referência para importar Word
+e PDF está em [MODELO_CADERNO.md](MODELO_CADERNO.md).
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |
 | Conta | Cadastro e login por e-mail. Recuperação por e-mail em preparação. | Login por usuário, vínculo de conta antiga, recuperação por código do mestre e código de reserva. Falta o cadastro de novas contas na interface. |
 | Campanhas | Criação de mesa, convite individual, entrada por código compartilhado e lista de participantes. Só o criador define ou desativa o código. | Lista e abertura de campanhas existentes, com papel por campanha. Faltam as telas de criação, entrada por código ou convite e gestão de participantes. As funções legadas estão nos scripts. |
-| Caderno | Busca e filtros, enciclopédia de personagens/lugares/itens, investigações e descobertas, missões com etapas, prioridade e progresso. | Lista geral, criação e edição de registros com categoria, resposta e nível de confiança. Faltam a navegação e os fluxos de acompanhamento do caderno antigo. |
+| Caderno | Busca e filtros, enciclopédia de personagens/lugares/itens, investigações e descobertas, missões com etapas, prioridade e progresso. | Índice com seções e busca por seção, criação e edição de registros com resposta e nível de confiança, missões ativas e concluídas. A enciclopédia ainda pode ganhar páginas mais completas. |
 | Crônicas | Datas editáveis, ordem por data ou manual, imagens e exportação em PNG/PDF. | Aba compartilhada com criação e edição de texto. Faltam controles de datas, ordenação, imagens no texto e exportação. |
 | Sincronização compartilhada | Cópia local, fila persistente, sinalização de envio pendente, reenvio após reconexão e atualização periódica da lista aberta. | Salvamento online com revisão, combinação de mudanças em campos diferentes e rascunho aberto quando há conflito. Faltam a cópia local, a fila persistente e a atualização periódica. |
 | Organização | Ordenação por arrasto ou setas, duplicação, lixeira e restauração. Exclusão definitiva compartilhada reservada ao criador. | As listas ocultam notas na lixeira, mas ainda faltam os controles de ordenação, duplicação, lixeira e restauração. |

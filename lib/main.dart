@@ -582,6 +582,7 @@ typedef _NotebookDrag = ({
 });
 
 const _hypothesesView = 'Hipóteses';
+const _uncategorizedView = 'Sem categoria';
 const _notebookSections = {
   'Missão': 'Objetivos e missões',
   'Investigação': 'Mistérios e pistas',
@@ -590,6 +591,16 @@ const _notebookSections = {
   'Objeto': 'Relíquias, objetos e sinais',
   'Carta': 'Cartas',
   _hypothesesView: 'Mural de hipóteses',
+};
+
+const _notebookSectionIcons = {
+  'Missão': Icons.task_alt_outlined,
+  'Investigação': Icons.search,
+  'Personagem': Icons.people_outline,
+  'Lugar': Icons.place_outlined,
+  'Objeto': Icons.diamond_outlined,
+  'Carta': Icons.mail_outline,
+  _hypothesesView: Icons.lightbulb_outline,
 };
 
 enum _RecordAction { duplicate, trash }
@@ -622,7 +633,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   Timer? _poll;
   final _search = TextEditingController();
   String? _category;
-  MissionStatus? _missionFilter;
+  bool _showCompletedMissions = false;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
   final _missionWrites = <String>{};
@@ -675,11 +686,14 @@ class _NotebookScreenState extends State<NotebookScreen>
   Widget? _editor;
 
   void _selectTab(_NotebookTab tab) {
-    if (tab == _tab) return;
+    if (tab == _tab) {
+      if (tab == _NotebookTab.records && _category != null) _openSection(null);
+      return;
+    }
     setState(() {
       _search.clear();
       _category = null;
-      _missionFilter = null;
+      _showCompletedMissions = false;
       _tab = tab;
       if (_tab == _NotebookTab.private) {
         _privateNotes = widget.repository.readGmNotes(widget.campaign);
@@ -687,6 +701,22 @@ class _NotebookScreenState extends State<NotebookScreen>
         _privateNotes = null;
       }
     });
+  }
+
+  void _openSection(String? category) {
+    setState(() {
+      _category = category;
+      _search.clear();
+      _showCompletedMissions = false;
+    });
+  }
+
+  void _back() {
+    if (_tab == _NotebookTab.records && _category != null) {
+      _openSection(null);
+    } else {
+      widget.onBack();
+    }
   }
 
   void _refresh() {
@@ -944,9 +974,9 @@ class _NotebookScreenState extends State<NotebookScreen>
 
   void _organizeNotebook(
     Notebook notebook,
-    List<CampaignRecord> records, {
-    required bool sessions,
-  }) {
+    List<CampaignRecord> records,
+    _NotebookDrag drag,
+  ) {
     final cards = [
       for (final record in records)
         if (record.id case final id?) (id: id, title: record.title),
@@ -959,15 +989,15 @@ class _NotebookScreenState extends State<NotebookScreen>
               .reorderRecords(
                 widget.campaign.id,
                 notebook,
-                ids,
-                sessions: sessions,
+                replaceVisibleOrder(drag.all, ids),
+                sessions: drag.sessions,
               )
               .timeout(notebookRequestTimeout);
           await _sync.refreshAfterChange();
         },
         onBack: () => setState(() => _editor = null),
         onSaved: () => setState(() {
-          if (sessions) _chroniclePreference = _ChronicleOrder.manual;
+          if (drag.sessions) _chroniclePreference = _ChronicleOrder.manual;
           _editor = null;
         }),
       );
@@ -1185,6 +1215,50 @@ class _NotebookScreenState extends State<NotebookScreen>
     return rows.map((row) => row.record).toList(growable: false);
   }
 
+  List<Widget> _syncNotices() => [
+    if (_sync.localError)
+      const ListTile(
+        leading: Icon(Icons.warning_amber_outlined),
+        title: Text('Falha ao gravar a cópia neste aparelho.'),
+      ),
+    if (_sync.offline || _sync.error != null)
+      ListTile(
+        leading: const Icon(Icons.cloud_off_outlined),
+        title: Text(_sync.error ?? 'Sem conexão · cópia neste aparelho'),
+      ),
+  ];
+
+  Widget _sectionIndex(Notebook notebook, List<NotebookDraft> drafts) {
+    final sections = {
+      ..._notebookSections.keys,
+      for (final record in notebook.records)
+        record.category ?? _uncategorizedView,
+      for (final draft in drafts) draft.category,
+    };
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        ..._syncNotices(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+          child: Text(
+            'Seções do caderno',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ),
+        for (final section in sections)
+          Card(
+            child: ListTile(
+              leading: Icon(_notebookSectionIcons[section] ?? Icons.notes),
+              title: Text(_notebookSections[section] ?? section),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _openSection(section),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _records() {
     final notebook = _sync.notebook;
     if (notebook == null) {
@@ -1204,15 +1278,14 @@ class _NotebookScreenState extends State<NotebookScreen>
     final allDrafts = _sync.drafts
         .where((draft) => draft.isSession == isSession)
         .toList();
-    final categories = {
-      ..._notebookSections.keys,
-      for (final record in allEntries) ?record.category,
-      for (final draft in allDrafts) draft.category,
-    };
+    if (!isSession && _category == null) {
+      return _sectionIndex(notebook, allDrafts);
+    }
+    final isMissionSection = _category == 'Missão';
     final terms = removeDiacritics(_search.text.trim().toLowerCase())
         .split(RegExp(r'\s+'))
         .where((term) => term.isNotEmpty);
-    final searching = terms.isNotEmpty || _category != null;
+    final searching = terms.isNotEmpty;
 
     bool matches(
       NotebookText text,
@@ -1224,10 +1297,11 @@ class _NotebookScreenState extends State<NotebookScreen>
         if (category != 'Investigação' || text.confidence != 'Hipótese') {
           return false;
         }
-      } else if (_category != null && category != _category) {
+      } else if (!isSession && (category ?? _uncategorizedView) != _category) {
         return false;
       }
-      if (_missionFilter != null && mission?.status != _missionFilter) {
+      if (isMissionSection &&
+          (mission?.completed ?? false) != _showCompletedMissions) {
         return false;
       }
       if (terms.isEmpty) return true;
@@ -1294,44 +1368,47 @@ class _NotebookScreenState extends State<NotebookScreen>
       visible: [for (final record in entries) ?record.id],
     );
     final header = <Widget>[
-      if (_sync.localError)
-        const ListTile(
-          leading: Icon(Icons.warning_amber_outlined),
-          title: Text('Falha ao gravar a cópia neste aparelho.'),
-        ),
-      if (_sync.offline || _sync.error != null)
-        ListTile(
-          leading: const Icon(Icons.cloud_off_outlined),
-          title: Text(_sync.error ?? 'Sem conexão · cópia neste aparelho'),
+      ..._syncNotices(),
+      if (isMissionSection)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Ativas')),
+              ButtonSegment(value: true, label: Text('Concluídas')),
+            ],
+            selected: {_showCompletedMissions},
+            showSelectedIcon: false,
+            onSelectionChanged: (value) => setState(() {
+              _showCompletedMissions = value.single;
+            }),
+          ),
         ),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          FilledButton.icon(
-            onPressed: () => _edit(notebook),
-            icon: const Icon(Icons.add),
-            label: Text(
-              isSession
-                  ? 'Nova crônica'
-                  : switch (_category) {
-                      'Missão' => 'Nova missão',
-                      _hypothesesView => 'Nova hipótese',
-                      _ => 'Novo registro',
-                    },
+          if (!isMissionSection || !_showCompletedMissions)
+            FilledButton.icon(
+              onPressed: () => _edit(notebook),
+              icon: const Icon(Icons.add),
+              label: Text(
+                isSession
+                    ? 'Nova crônica'
+                    : switch (_category) {
+                        'Missão' => 'Nova missão',
+                        _hypothesesView => 'Nova hipótese',
+                        _ => 'Novo registro',
+                      },
+              ),
             ),
-          ),
           const Spacer(),
-          if (allEntries.where((record) => record.id != null).length > 1)
+          if (movable)
             IconButton(
               tooltip: 'Organizar cartões',
               icon: const Icon(Icons.swap_vert),
               onPressed: _trashBusy
                   ? null
-                  : () => _organizeNotebook(
-                      notebook,
-                      sortCards(allEntries),
-                      sessions: isSession,
-                    ),
+                  : () => _organizeNotebook(notebook, entries, drag),
             ),
           if (isSession)
             PopupMenuButton<_ChronicleOrder>(
@@ -1375,52 +1452,6 @@ class _NotebookScreenState extends State<NotebookScreen>
           onChanged: (_) => setState(() {}),
         ),
       ),
-      if (!isSession && categories.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: DropdownButton<String>(
-            value: _category,
-            hint: const Text('Todas as categorias'),
-            isExpanded: true,
-            items: [
-              const DropdownMenuItem(child: Text('Todas as categorias')),
-              for (final category in categories)
-                DropdownMenuItem(
-                  value: category,
-                  child: Text(_notebookSections[category] ?? category),
-                ),
-            ],
-            onChanged: (category) => setState(() {
-              _category = category;
-              _missionFilter = null;
-            }),
-          ),
-        ),
-      if (_category == 'Missão')
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: DropdownButton<MissionStatus>(
-            value: _missionFilter,
-            hint: const Text('Todos os estados'),
-            isExpanded: true,
-            items: const [
-              DropdownMenuItem(child: Text('Todos os estados')),
-              DropdownMenuItem(
-                value: MissionStatus.open,
-                child: Text('Abertas'),
-              ),
-              DropdownMenuItem(
-                value: MissionStatus.inProgress,
-                child: Text('Em andamento'),
-              ),
-              DropdownMenuItem(
-                value: MissionStatus.completed,
-                child: Text('Concluídas'),
-              ),
-            ],
-            onChanged: (status) => setState(() => _missionFilter = status),
-          ),
-        ),
       for (final draft in drafts.values)
         Card(
           child: ListTile(
@@ -1472,7 +1503,11 @@ class _NotebookScreenState extends State<NotebookScreen>
               child: Text(
                 searching
                     ? 'Nenhum resultado para esta busca.'
-                    : 'Nenhum registro nesta aba.',
+                    : isMissionSection
+                    ? (_showCompletedMissions
+                          ? 'Nenhuma missão concluída.'
+                          : 'Nenhuma missão ativa.')
+                    : 'Nenhum registro nesta seção.',
               ),
             ),
           );
@@ -1568,8 +1603,6 @@ class _NotebookScreenState extends State<NotebookScreen>
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
-                if (!isSession && record.category != null)
-                  Text(record.category!),
                 if (plan != null) MissionSummary(plan: plan),
                 if (record.confidence case final confidence?)
                   Text('Confiança · $confidence'),
@@ -1606,12 +1639,14 @@ class _NotebookScreenState extends State<NotebookScreen>
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (popped, _) {
-        if (!popped) widget.onBack();
+        if (!popped) _back();
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: BackButton(onPressed: widget.onBack),
-          title: Text(widget.campaign.name),
+          leading: BackButton(onPressed: _back),
+          title: Text(
+            _notebookSections[_category] ?? _category ?? widget.campaign.name,
+          ),
           actions: [
             if (widget.isOwner)
               IconButton(

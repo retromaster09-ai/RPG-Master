@@ -126,6 +126,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Editar'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(1), 'Texto editado');
@@ -154,6 +156,8 @@ void main() {
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Editar'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(1), 'Ainda é um rascunho');
@@ -163,6 +167,8 @@ void main() {
     repository.online = false;
 
     await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rascunho neste aparelho'));
     await tester.pumpAndSettle();
@@ -265,7 +271,7 @@ void main() {
     expect(sync.drafts.single.text.body, 'Texto antes do reset');
   });
 
-  testWidgets('a busca encontra texto com acento e o filtro usa a categoria', (
+  testWidgets('a busca encontra texto com acento dentro da seção', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(440, 900));
@@ -282,6 +288,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'ANOTACAO torre');
     await tester.pumpAndSettle();
     expect(find.text('Pista'), findsOneWidget);
@@ -289,10 +297,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Pista'), findsNothing);
     await tester.tap(find.byTooltip('Limpar busca'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Mistérios e pistas').last);
     await tester.pumpAndSettle();
     expect(find.text('Pista'), findsOneWidget);
   });
@@ -418,6 +422,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Opções do registro'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mover para a lixeira'));
@@ -485,6 +491,8 @@ void main() {
       );
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Objetivos e missões'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Editar'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Adicionar etapa'));
@@ -505,6 +513,8 @@ void main() {
       repository.online = false;
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Objetivos e missões'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Rascunho neste aparelho'));
       await tester.pumpAndSettle();
       expect(find.text('No escritório'), findsOneWidget);
@@ -520,6 +530,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.mission!.status, MissionStatus.completed);
       expect(repository.mission!.steps.single.details, 'No escritório');
+      await tester.tap(find.text('Concluídas'));
+      await tester.pumpAndSettle();
       expect(find.text('1 de 1 etapas concluídas'), findsOneWidget);
     },
   );
@@ -527,7 +539,11 @@ void main() {
   testWidgets('marca etapas e conclui a missão pelo cartão', (tester) async {
     await tester.binding.setSurfaceSize(const Size(750, 1350));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    final repository = _EditorRepository()..mission = const MissionPlan();
+    final repository = _EditorRepository()
+      ..mission = const MissionPlan()
+      ..sessions = const [
+        {'id': 'person', 'title': 'Guia da vila', 'category': 'Personagem'},
+      ];
     await tester.pumpWidget(
       MaterialApp(
         home: NotebookScreen(
@@ -540,6 +556,17 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsNothing);
+    expect(find.text('Guia da vila'), findsNothing);
+    await tester.tap(find.text('Pessoas importantes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guia da vila'), findsOneWidget);
+    expect(find.text('Pista'), findsNothing);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Objetivos e missões'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guia da vila'), findsNothing);
     await tester.tap(find.text('Adicionar etapa'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -554,10 +581,17 @@ void main() {
     await tester.tap(find.byTooltip('Marcar missão como concluída'));
     await tester.pumpAndSettle();
     expect(repository.mission!.status, MissionStatus.completed);
+    expect(find.text('Pista'), findsNothing);
+    await tester.tap(find.text('Concluídas'));
+    await tester.pumpAndSettle();
     expect(find.text('1 de 1 etapas concluídas'), findsOneWidget);
     await tester.tap(find.byTooltip('Reabrir missão'));
     await tester.pumpAndSettle();
     expect(repository.mission!.status, MissionStatus.inProgress);
+    expect(find.text('Pista'), findsNothing);
+    await tester.tap(find.text('Ativas'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ler o bilhete'), findsOneWidget);
     expect(repository.mission!.steps.single.completed, isTrue);
   });
 
@@ -579,6 +613,8 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
     await tester.pumpAndSettle();
     final first = tester.getCenter(find.text('Pista'));
     final second = tester.getCenter(find.text('Outra pista'));

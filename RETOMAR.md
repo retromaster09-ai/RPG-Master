@@ -1,8 +1,9 @@
 # Retomar o RPG Master Set
 
 Este arquivo resume as decisões para continuar a reconstrução em outro
-chat. Leia também o README e o histórico Git. Em 0.17.0-dev.12, o caderno
-passou a usar as seções do [modelo dos jogadores](MODELO_CADERNO.md).
+chat. Leia também o README e o histórico Git. Desde 0.17.0-dev.13,
+o caderno abre em um índice do [modelo dos jogadores](MODELO_CADERNO.md)
+e separa missões ativas das concluídas pelo estado já salvo.
 O mesmo arquivo descreve como interpretar a estrutura para importar Word
 e PDF em uma etapa futura.
 

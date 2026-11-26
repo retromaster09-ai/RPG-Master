@@ -143,10 +143,14 @@ List<String> moveVisibleCard(
   int from,
   int to,
 ) {
-  final shown = visible.toSet();
   final moved = [...visible];
   final item = moved.removeAt(from);
   moved.insert(to, item);
+  return replaceVisibleOrder(all, moved);
+}
+
+List<String> replaceVisibleOrder(List<String> all, List<String> ordered) {
+  final shown = ordered.toSet();
   var next = 0;
-  return [for (final id in all) shown.contains(id) ? moved[next++] : id];
+  return [for (final id in all) shown.contains(id) ? ordered[next++] : id];
 }

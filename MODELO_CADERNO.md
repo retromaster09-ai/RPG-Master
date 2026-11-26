@@ -1,8 +1,9 @@
 # Modelo do caderno compartilhado
 
 O Word dos jogadores serviu de referência para organizar o caderno.
-Os filtros são atalhos para os tipos de registro. Todo registro continua
-com título, texto livre e nível de confiança quando fizer sentido.
+O Caderno abre no índice de seções. Cada seção tem sua própria lista
+e busca. Todo registro continua com título, texto livre e nível de
+confiança quando fizer sentido.
 
 | Seção | Como registrar |
 | --- | --- |
@@ -11,12 +12,15 @@ com título, texto livre e nível de confiança quando fizer sentido.
 | Pessoas importantes | Nome e notas sobre a pessoa. |
 | Lugares importantes | Nome do local e o que o grupo encontrou lá. |
 | Relíquias, objetos e sinais | Nome, descrição e contexto da descoberta. |
-| Mural de hipóteses | Mostra os registros de Mistérios e pistas marcados com confiança **Hipótese**. O mesmo registro pode aparecer nos dois filtros. |
+| Mural de hipóteses | Mostra os registros de Mistérios e pistas marcados com confiança **Hipótese**. O mesmo registro pode aparecer nas duas seções. |
 | Crônicas | Uma entrada por sessão ou resumo, com datas opcionais e ordenação por data ou manual. |
 
-O filtro **Cartas** também continua disponível. Segure o título de um
-cartão publicado e arraste para reorganizar. Se houver um filtro, os
-cartões ocultos mantêm suas posições. Nas Crônicas, arrastar muda para
+A seção **Cartas** também está disponível. Abra **Objetivos e missões**
+para acompanhar o que está em **Ativas**. Ao marcar a caixa do objetivo,
+o cartão passa para **Concluídas**. Reabrir devolve o cartão a **Ativas**
+e preserva as etapas marcadas. Segure o título de um
+cartão publicado e arraste para reorganizar. Ao reorganizar, os cartões que estiverem em outra seção ou
+fora da busca mantêm suas posições. Nas Crônicas, arrastar muda para
 ordem manual. No Mestre, o gesto reorganiza as notas dentro da seção.
 
 ## Referência para implementar a importação Word e PDF
