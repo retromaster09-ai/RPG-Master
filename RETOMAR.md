@@ -68,6 +68,14 @@ tipográfico em dourado, com a fonte Cinzel Decorative Black. A fonte e
 sua licença SIL OFL estão em `assets/branding-fonts/`. O APK de celular
 recomendado continua na versão 0.17.0-dev.22.
 
+## Próxima versão Android
+
+Levar ao Android os efeitos de som de login aprovados no PC. Usar um
+toque curto de cristal ao digitar e um acorde ao acionar **Entrar**, com
+controle para ligar ou silenciar. Preservar o enquadramento vertical e o
+formulário aprovados no celular. A implementação atual de áudio usa a
+Web Audio API no PC e precisa de uma implementação Android correspondente.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android
