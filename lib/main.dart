@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:diacritic/diacritic.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show Uint8List, compute;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,9 +12,12 @@ import 'accounts.dart';
 import 'campaign_access.dart';
 import 'campaign_cover.dart';
 import 'campaigns.dart';
+import 'chronicle_export.dart';
 import 'cover_frame.dart';
 import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
+import 'hypotheses.dart';
+import 'hypothesis_fields.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
 import 'notebook_editor.dart';
@@ -649,10 +652,12 @@ class _NotebookScreenState extends State<NotebookScreen>
   String? _category;
   bool _showCompletedMissions = false;
   bool _onlyHypotheses = false;
+  bool _showClosedHypotheses = false;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
   bool _readingWord = false;
-  final _missionWrites = <String>{};
+  bool _exportingChronicles = false;
+  final _recordWrites = <String>{};
   _NotebookDrag? _dragBasis;
   List<String>? _notebookOrderPreview;
   List<String>? _gmOrderPreview;
@@ -711,6 +716,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       _category = null;
       _showCompletedMissions = false;
       _onlyHypotheses = false;
+      _showClosedHypotheses = false;
       _tab = tab;
       if (_tab == _NotebookTab.private) {
         _privateNotes = widget.repository.readGmNotes(widget.campaign);
@@ -726,6 +732,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       _search.clear();
       _showCompletedMissions = false;
       _onlyHypotheses = false;
+      _showClosedHypotheses = false;
     });
   }
 
@@ -754,11 +761,84 @@ class _NotebookScreenState extends State<NotebookScreen>
         repository: widget.repository,
         campaignId: widget.campaign.id,
         onBack: () => setState(() => _editor = null),
+        onExport: record.category == 'Sessão'
+            ? () => _exportChronicles(imageOf: record)
+            : null,
         onEdit: record.id == null
             ? null
             : () => _edit(notebook, record: record),
       );
     });
+  }
+
+  Future<void> _exportChronicles({CampaignRecord? imageOf}) async {
+    final notebook = _sync.notebook;
+    if (_exportingChronicles ||
+        notebook == null ||
+        (imageOf == null && notebook.sessions.isEmpty)) {
+      return;
+    }
+    setState(() => _exportingChronicles = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Preparando arquivo…')),
+    );
+    try {
+      final images = <String, Future<Uint8List>>{};
+      Future<Uint8List> readImage(String hash) => images.putIfAbsent(
+        hash,
+        () => widget.repository
+            .readNotebookCover(widget.campaign.id, hash)
+            .timeout(notebookRequestTimeout),
+      );
+      final name = imageOf == null
+          ? chronicleFileName('Crônicas ${widget.campaign.name}', 'pdf')
+          : chronicleFileName(imageOf.title, 'png');
+      final order =
+          _chroniclePreference ??
+          (notebook.sessions.any(
+                (entry) => entry.orderIndex(chronicleOrder) != null,
+              )
+              ? _ChronicleOrder.manual
+              : _ChronicleOrder.recent);
+      final bytes = imageOf == null
+          ? await exportChroniclesPdf(
+              widget.campaign.name,
+              _sortSessions(notebook.sessions, order),
+              readImage,
+            )
+          : await exportChroniclePng(imageOf, readImage);
+      if (!mounted) return;
+      final box = context.findRenderObject();
+      final origin = box is RenderBox && box.hasSize
+          ? box.localToGlobal(Offset.zero) & box.size
+          : const Rect.fromLTWH(0, 0, 1, 1);
+      messenger.hideCurrentSnackBar();
+      await shareChronicleFile(
+        bytes,
+        name,
+        imageOf == null ? 'application/pdf' : 'image/png',
+        origin: origin,
+      );
+    } on FormatException catch (error) {
+      if (mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } on Exception {
+      if (mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível exportar. Confira a conexão para baixar as imagens da crônica.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exportingChronicles = false);
+    }
   }
 
   void _edit(
@@ -964,26 +1044,75 @@ class _NotebookScreenState extends State<NotebookScreen>
     CampaignRecord record,
     MissionPlan plan,
   ) async {
+    await _queueRecordChange(notebook, record, mission: plan);
+  }
+
+  Future<void> _changeHypothesis(
+    Notebook notebook,
+    CampaignRecord record,
+  ) async {
+    final current = record.resolution;
+    final resolution = current.closed
+        ? HypothesisResolution(reason: current.reason)
+        : await showDialog<HypothesisResolution>(
+            context: context,
+            builder: (_) =>
+                HypothesisConclusionDialog(initialReason: current.reason),
+          );
+    if (!mounted || resolution == null) return;
+    final queued = await _queueRecordChange(
+      notebook,
+      record,
+      resolution: resolution,
+    );
+    if (!mounted || !queued || !resolution.closed) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Hipótese ${resolution.status.label.toLowerCase()}.'),
+        action: SnackBarAction(
+          label: 'Ver concluídas',
+          onPressed: () {
+            if (_category != 'Investigação') return;
+            setState(() {
+              _onlyHypotheses = true;
+              _showClosedHypotheses = true;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _queueRecordChange(
+    Notebook notebook,
+    CampaignRecord record, {
+    MissionPlan? mission,
+    HypothesisResolution? resolution,
+  }) async {
     final id = record.id;
+    final category = record.category;
     if (id == null ||
-        _missionWrites.contains(id) ||
+        category == null ||
+        _recordWrites.contains(id) ||
         _sync.drafts.any((draft) => draft.id == id)) {
-      return;
+      return false;
     }
-    setState(() => _missionWrites.add(id));
+    setState(() => _recordWrites.add(id));
     try {
       await _sync.keep(
         NotebookDraft(
           id: id,
-          category: 'Missão',
+          category: category,
           epoch: notebook.epoch,
           text: record.text,
           original: record,
-          mission: plan,
+          mission: mission,
+          resolution: resolution,
           status: DraftStatus.queued,
         ),
       );
       unawaited(_sync.refresh());
+      return true;
     } on Exception catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -994,8 +1123,9 @@ class _NotebookScreenState extends State<NotebookScreen>
           ),
         );
       }
+      return false;
     } finally {
-      if (mounted) setState(() => _missionWrites.remove(id));
+      if (mounted) setState(() => _recordWrites.remove(id));
     }
   }
 
@@ -1438,6 +1568,17 @@ class _NotebookScreenState extends State<NotebookScreen>
     );
   }
 
+  Widget _completionTabs(bool selected, ValueChanged<bool> onChanged) =>
+      SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(value: false, label: Text('Ativas')),
+          ButtonSegment(value: true, label: Text('Concluídas')),
+        ],
+        selected: {selected},
+        showSelectedIcon: false,
+        onSelectionChanged: (value) => onChanged(value.single),
+      );
+
   Widget _records() {
     final notebook = _sync.notebook;
     if (notebook == null) {
@@ -1471,11 +1612,18 @@ class _NotebookScreenState extends State<NotebookScreen>
       String? category,
       List<String> dates,
       MissionPlan? mission,
+      HypothesisResolution resolution,
     ) {
       if (!isSession && (category ?? _uncategorizedView) != _category) {
         return false;
       }
-      if (_onlyHypotheses && text.confidence != 'Hipótese') return false;
+      final hypothesis =
+          category == 'Investigação' && text.confidence == 'Hipótese';
+      if (_onlyHypotheses
+          ? !hypothesis || resolution.closed != _showClosedHypotheses
+          : hypothesis && resolution.closed) {
+        return false;
+      }
       if (isMissionSection &&
           (mission?.completed ?? false) != _showCompletedMissions) {
         return false;
@@ -1488,6 +1636,7 @@ class _NotebookScreenState extends State<NotebookScreen>
           text.answer,
           text.confidence,
           category ?? '',
+          if (hypothesis && resolution.closed) resolution.reason,
           ...dates.map(sessionDateLabel),
           if (mission != null)
             for (final step in mission.steps) ...[step.title, step.details],
@@ -1503,6 +1652,9 @@ class _NotebookScreenState extends State<NotebookScreen>
           draft.category,
           draft.dates ?? draft.original?.dates ?? const [],
           draft.mission ?? draft.original?.mission,
+          draft.resolution ??
+              draft.original?.resolution ??
+              const HypothesisResolution(),
         ))
           draft.id: draft,
     };
@@ -1516,6 +1668,7 @@ class _NotebookScreenState extends State<NotebookScreen>
                 record.category,
                 record.dates,
                 record.mission,
+                record.resolution,
               ),
         )
         .toList(growable: false);
@@ -1548,22 +1701,16 @@ class _NotebookScreenState extends State<NotebookScreen>
       if (isMissionSection)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('Ativas')),
-              ButtonSegment(value: true, label: Text('Concluídas')),
-            ],
-            selected: {_showCompletedMissions},
-            showSelectedIcon: false,
-            onSelectionChanged: (value) => setState(() {
-              _showCompletedMissions = value.single;
-            }),
+          child: _completionTabs(
+            _showCompletedMissions,
+            (value) => setState(() => _showCompletedMissions = value),
           ),
         ),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (!isMissionSection || !_showCompletedMissions)
+          if ((!isMissionSection || !_showCompletedMissions) &&
+              (!_onlyHypotheses || !_showClosedHypotheses))
             FilledButton.icon(
               onPressed: () => _edit(notebook),
               icon: const Icon(Icons.add),
@@ -1634,7 +1781,18 @@ class _NotebookScreenState extends State<NotebookScreen>
           child: FilterChip(
             label: const Text('Só hipóteses'),
             selected: _onlyHypotheses,
-            onSelected: (value) => setState(() => _onlyHypotheses = value),
+            onSelected: (value) => setState(() {
+              _onlyHypotheses = value;
+              _showClosedHypotheses = false;
+            }),
+          ),
+        ),
+      if (_onlyHypotheses)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: _completionTabs(
+            _showClosedHypotheses,
+            (value) => setState(() => _showClosedHypotheses = value),
           ),
         ),
       for (final draft in drafts.values)
@@ -1652,6 +1810,11 @@ class _NotebookScreenState extends State<NotebookScreen>
                   DraftStatus.queued => 'Aguardando envio',
                   DraftStatus.review => 'Revisar edição',
                 }),
+                if ((draft.resolution ?? draft.original?.resolution)
+                    case final conclusion?
+                    when conclusion.closed &&
+                        draft.text.confidence == 'Hipótese')
+                  HypothesisConclusion(resolution: conclusion, compact: true),
                 if (draft.mission ?? draft.original?.mission
                     case final mission?) ...[
                   MissionSummary(plan: mission),
@@ -1693,7 +1856,9 @@ class _NotebookScreenState extends State<NotebookScreen>
                           ? 'Nenhuma missão concluída.'
                           : 'Nenhuma missão ativa.')
                     : _onlyHypotheses
-                    ? 'Nenhuma hipótese registrada.'
+                    ? (_showClosedHypotheses
+                          ? 'Nenhuma hipótese concluída.'
+                          : 'Nenhuma hipótese ativa.')
                     : 'Nenhum registro nesta seção.',
               ),
             ),
@@ -1701,8 +1866,11 @@ class _NotebookScreenState extends State<NotebookScreen>
         }
         final record = entries[index];
         final plan = record.mission;
+        final isHypothesis =
+            record.category == 'Investigação' &&
+            record.confidence == 'Hipótese';
         final canChange =
-            record.id != null && !_missionWrites.contains(record.id);
+            record.id != null && !_recordWrites.contains(record.id);
         final card = Card(
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -1745,6 +1913,18 @@ class _NotebookScreenState extends State<NotebookScreen>
                                             : MissionStatus.inProgress,
                                       ),
                                     )
+                                  : null,
+                            ),
+                          ),
+                        if (isHypothesis)
+                          Tooltip(
+                            message: record.resolution.closed
+                                ? 'Reabrir hipótese'
+                                : 'Concluir hipótese',
+                            child: Checkbox(
+                              value: record.resolution.closed,
+                              onChanged: canChange
+                                  ? (_) => _changeHypothesis(notebook, record)
                                   : null,
                             ),
                           ),
@@ -1814,8 +1994,14 @@ class _NotebookScreenState extends State<NotebookScreen>
                         ),
                       ),
                     if (plan != null) MissionSummary(plan: plan),
-                    if (record.confidence case final confidence?)
+                    if (record.confidence case final confidence?
+                        when !isHypothesis || !record.resolution.closed)
                       Text('Confiança · $confidence'),
+                    if (isHypothesis && record.resolution.closed)
+                      HypothesisConclusion(
+                        resolution: record.resolution,
+                        compact: true,
+                      ),
                     if (record.body.isNotEmpty)
                       InkWell(
                         onTap: () => _readRecord(notebook, record),
@@ -1875,6 +2061,16 @@ class _NotebookScreenState extends State<NotebookScreen>
                     onBack: () => setState(() => _editor = null),
                   );
                 }),
+              ),
+            if (_tab == _NotebookTab.sessions)
+              IconButton(
+                tooltip: 'Exportar todas as crônicas em PDF',
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                onPressed:
+                    _exportingChronicles ||
+                        _sync.notebook?.sessions.isNotEmpty != true
+                    ? null
+                    : _exportChronicles,
               ),
             IconButton(
               onPressed: _trashBusy ? null : _openTrash,

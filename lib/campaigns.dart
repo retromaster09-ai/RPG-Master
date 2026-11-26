@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'hypotheses.dart';
 import 'missions.dart';
 import 'notebook_format.dart';
 import 'session_dates.dart';
@@ -149,6 +150,7 @@ class CampaignRecord {
     this.deletedAt,
     this.orders = const {},
     this.mission,
+    this.resolution = const HypothesisResolution(),
     this.coverHash,
     this.presentation = const NotebookPresentation(),
   });
@@ -176,6 +178,7 @@ class CampaignRecord {
       orders: Map.unmodifiable(_orders(json['orders'])),
       coverHash: notebookMediaHash(json['imagePath']),
       presentation: NotebookPresentation.fromJson(json, text),
+      resolution: HypothesisResolution.fromJson(json),
       mission: category == 'Missão' ? MissionPlan.fromJson(json) : null,
       confidence:
           confidence is String &&
@@ -196,6 +199,7 @@ class CampaignRecord {
   final String? deletedAt;
   final Map<String, dynamic> orders;
   final MissionPlan? mission;
+  final HypothesisResolution resolution;
   final String? coverHash;
   final NotebookPresentation presentation;
 
@@ -219,6 +223,7 @@ class CampaignRecord {
     'deletedAt': deletedAt,
     'orders': orders,
     ...presentation.toJson(),
+    ...resolution.toJson(),
     if (coverHash != null) 'imagePath': 'rpg-media:$coverHash',
     if (mission case final plan?) ...plan.toJson(),
   };
@@ -573,6 +578,7 @@ class CampaignRepository {
     CampaignRecord? original,
     List<String>? dates,
     MissionPlan? mission,
+    HypothesisResolution? resolution,
     Uint8List? coverPng,
     NotebookPresentation? presentation,
   }) async {
@@ -634,6 +640,7 @@ class CampaignRepository {
               (newCover == null || newCover == (existing.coverHash ?? '')) &&
               (presentation == null ||
                   presentation.sameAs(existing.presentation)) &&
+              (resolution == null || resolution.sameAs(existing.resolution)) &&
               (dates == null || listEquals(existing.dates, dates)) &&
               (mission == null || _sameMission(mission, existing.mission))) {
             return;
@@ -652,6 +659,7 @@ class CampaignRepository {
             mission,
             newCover,
             presentation,
+            resolution: resolution,
           ),
         );
       } else {
@@ -668,6 +676,7 @@ class CampaignRepository {
           mission,
           newCover,
           presentation,
+          resolution,
         );
         if (merged.isEmpty) return;
         entries[index] = {...entries[index], ...merged};
@@ -1106,6 +1115,7 @@ Map<String, Object?> _mergeEntry(
   MissionPlan? mission,
   String? newCover,
   NotebookPresentation? presentation,
+  HypothesisResolution? resolution,
 ) {
   final current = CampaignRecord.fromJson(entry);
   final remote = current.text;
@@ -1234,6 +1244,19 @@ Map<String, Object?> _mergeEntry(
     }
     changes['dates'] = dates;
   }
+  if (resolution != null &&
+      !resolution.sameAs(original.resolution) &&
+      !resolution.sameAs(current.resolution)) {
+    if (!original.resolution.sameAs(current.resolution) ||
+        current.confidence != 'Hipótese' ||
+        current.category != 'Investigação') {
+      throw NotebookConflict(
+        'Outra pessoa alterou a hipótese. Confira a conclusão antes de salvar.',
+        current: current,
+      );
+    }
+    changes.addAll(resolution.toJson());
+  }
   if (mission != null) {
     final before = original.mission ?? const MissionPlan();
     final saved = current.mission ?? const MissionPlan();
@@ -1302,8 +1325,9 @@ Map<String, Object?> _newEntry(
   List<String> dates,
   MissionPlan? mission,
   String? newCover,
-  NotebookPresentation? presentation,
-) => {
+  NotebookPresentation? presentation, {
+  HypothesisResolution? resolution,
+}) => {
   'id': id,
   'category': category,
   'title': text.title,
@@ -1315,6 +1339,7 @@ Map<String, Object?> _newEntry(
   'paper': 'Leitura simples',
   'source': '',
   'resolution': 'open',
+  if (resolution != null) ...resolution.toJson(),
   ...(mission ?? const MissionPlan()).toJson(),
   'dates': dates,
   'history': <Object>[],

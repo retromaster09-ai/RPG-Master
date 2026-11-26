@@ -26,6 +26,8 @@ imagens no texto e enquadramento dos cartões no Caderno e nas Crônicas.
 O `0.17.0-dev.16` recupera tamanho, posicionamento e remoção de fundo
 por cor nas imagens do texto, com restauração do original.
 O `0.17.0-dev.17` restaura a importação de Word com prévia e confirmação.
+O `0.17.0-dev.19` exporta as crônicas em PDF e PNG e permite concluir
+e reabrir hipóteses.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

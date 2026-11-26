@@ -282,6 +282,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
     text: _draft,
     dates: widget.isSession ? _dates : null,
     mission: _category == 'Missão' ? _mission : null,
+    resolution: _category == 'Investigação' && _confidence == 'Hipótese'
+        ? widget.savedDraft?.resolution
+        : null,
     coverPng: _coverPng,
     presentation: _presentation,
     original: _baseRecord,

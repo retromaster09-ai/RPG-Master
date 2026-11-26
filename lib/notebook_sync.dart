@@ -6,6 +6,7 @@ import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campaigns.dart';
+import 'hypotheses.dart';
 import 'missions.dart';
 import 'offline_storage.dart';
 import 'session_dates.dart';
@@ -36,6 +37,7 @@ class NotebookDraft {
     required this.text,
     this.dates,
     this.mission,
+    this.resolution,
     this.coverPng,
     this.presentation,
     this.original,
@@ -52,6 +54,11 @@ class NotebookDraft {
     dates: data['dates'] == null ? null : readSessionDates(data['dates']),
     mission: data['mission'] is Map<String, dynamic>
         ? MissionPlan.fromJson(data['mission'] as Map<String, dynamic>)
+        : null,
+    resolution: data['resolution'] is Map<String, dynamic>
+        ? HypothesisResolution.fromJson(
+            data['resolution'] as Map<String, dynamic>,
+          )
         : null,
     coverPng: data['coverPng'] is String
         ? base64Decode(data['coverPng'] as String)
@@ -78,6 +85,7 @@ class NotebookDraft {
   final NotebookText text;
   final List<String>? dates;
   final MissionPlan? mission;
+  final HypothesisResolution? resolution;
   final Uint8List? coverPng;
   final NotebookPresentation? presentation;
   final CampaignRecord? original;
@@ -95,6 +103,7 @@ class NotebookDraft {
         text: text,
         dates: dates,
         mission: mission,
+        resolution: resolution,
         coverPng: coverPng,
         presentation: presentation,
         original: original,
@@ -116,6 +125,7 @@ class NotebookDraft {
     'original': original?.toJson(),
     'dates': dates,
     'mission': mission?.toJson(),
+    if (resolution != null) 'resolution': resolution!.toJson(),
     if (coverPng != null) 'coverPng': base64Encode(coverPng!),
     if (presentation != null) 'presentation': presentation!.toJson(),
     'status': status.name,
@@ -307,6 +317,7 @@ class NotebookSync extends ChangeNotifier {
             original: draft.original,
             dates: draft.dates,
             mission: draft.mission,
+            resolution: draft.resolution,
             coverPng: draft.coverPng,
             presentation: draft.presentation,
           )

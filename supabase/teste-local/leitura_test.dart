@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rpg_master_set/accounts.dart';
 import 'package:rpg_master_set/campaigns.dart';
+import 'package:rpg_master_set/hypotheses.dart';
 import 'package:rpg_master_set/missions.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
 import 'package:rpg_master_set/notebook_format.dart';
@@ -729,7 +730,55 @@ void main() {
       imported.id,
     );
     expect(afterImport.records.any((entry) => entry.id == missionId), isTrue);
-  }, timeout: const Timeout(Duration(seconds: 40)));
+    final hypothesisId = newNotebookRecordId();
+    await playerRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: afterImport,
+      id: hypothesisId,
+      category: 'Investigação',
+      text: (
+        title: 'A hipótese da ponte',
+        body: '',
+        answer: '',
+        confidence: 'Hipótese',
+      ),
+    );
+    final gmNotebook = await gmRepo.readNotebook(campaignId);
+    final hypothesis = gmNotebook.records.singleWhere(
+      (item) => item.id == hypothesisId,
+    );
+    const conclusion = HypothesisResolution(
+      status: HypothesisStatus.confirmed,
+      reason: 'O grupo achou as pegadas.',
+    );
+    await gmRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: gmNotebook,
+      id: hypothesisId,
+      category: 'Investigação',
+      original: hypothesis,
+      text: hypothesis.text,
+      resolution: conclusion,
+    );
+    final playerNotebook = await playerRepo.readNotebook(campaignId);
+    final concluded = playerNotebook.records.singleWhere(
+      (item) => item.id == hypothesisId,
+    );
+    expect(concluded.resolution.sameAs(conclusion), isTrue);
+    await playerRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: playerNotebook,
+      id: hypothesisId,
+      category: 'Investigação',
+      original: concluded,
+      text: concluded.text,
+      resolution: HypothesisResolution(reason: conclusion.reason),
+    );
+    final reopened = (await gmRepo.readNotebook(campaignId)).records
+        .singleWhere((item) => item.id == hypothesisId);
+    expect(reopened.resolution.closed, isFalse);
+    expect(reopened.resolution.reason, conclusion.reason);
+  }, timeout: const Timeout(Duration(seconds: 65)));
 }
 
 Future<NotebookConflict?> _attemptTitle(

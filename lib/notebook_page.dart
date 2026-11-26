@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
 import 'cover_frame.dart';
+import 'hypothesis_fields.dart';
 import 'notebook_format.dart';
 import 'notebook_picture_editor.dart';
 import 'notebook_rich_text.dart';
@@ -70,6 +71,7 @@ class NotebookPage extends StatelessWidget {
     required this.campaignId,
     required this.onBack,
     this.onEdit,
+    this.onExport,
   });
 
   final CampaignRecord record;
@@ -77,6 +79,7 @@ class NotebookPage extends StatelessWidget {
   final String campaignId;
   final VoidCallback onBack;
   final VoidCallback? onEdit;
+  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +94,12 @@ class NotebookPage extends StatelessWidget {
           leading: BackButton(onPressed: onBack),
           title: Text(record.category ?? 'Registro'),
           actions: [
+            if (onExport != null)
+              IconButton(
+                onPressed: onExport,
+                tooltip: 'Exportar crônica como imagem',
+                icon: const Icon(Icons.image_outlined),
+              ),
             if (onEdit != null)
               IconButton(
                 onPressed: onEdit,
@@ -123,6 +132,13 @@ class NotebookPage extends StatelessWidget {
               repository: repository,
               campaignId: campaignId,
             ),
+            if (record.category == 'Investigação' &&
+                record.confidence == 'Hipótese' &&
+                record.resolution.closed)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: HypothesisConclusion(resolution: record.resolution),
+              ),
             if (record.mission case final plan?) ...[
               const SizedBox(height: 18),
               MissionSummary(plan: plan),
@@ -179,17 +195,11 @@ class _ReadingSheet extends StatelessWidget {
           child: SelectableText.rich(
             notebookTextSpan(
               text.substring(range.start, range.end),
-              [
-                for (final mark in presentation.bodyMarks)
-                  if (mark.end > range.start && mark.start < range.end)
-                    (
-                      start:
-                          mark.start.clamp(range.start, range.end) -
-                          range.start,
-                      end: mark.end.clamp(range.start, range.end) - range.start,
-                      attributes: mark.attributes,
-                    ),
-              ],
+              sliceNotebookMarks(
+                presentation.bodyMarks,
+                range.start,
+                range.end,
+              ),
               style,
               lightPaper: lightPaper,
             ),
@@ -286,7 +296,10 @@ class _ReadingSheet extends StatelessWidget {
             record.dates.map(sessionDateLabel).join(' · '),
             style: bodyStyle,
           ),
-        if (record.confidence case final confidence?)
+        if (record.confidence case final confidence?
+            when confidence != 'Hipótese' ||
+                record.category != 'Investigação' ||
+                !record.resolution.closed)
           Text('Confiança · $confidence', style: bodyStyle),
         if (record.body.isNotEmpty || presentation.pictures.isNotEmpty) ...[
           const SizedBox(height: 16),

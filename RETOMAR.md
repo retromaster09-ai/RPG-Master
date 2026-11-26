@@ -29,6 +29,11 @@ O 0.17.0-dev.18 move a importação de Word para as ferramentas no índice
 do Caderno. Hipóteses aparecem como filtro em Mistérios e pistas, usando
 o campo de confiança que já existe nos registros.
 
+O 0.17.0-dev.19 acrescenta conclusão confirmada ou refutada nas
+hipóteses, com motivo e reabertura. O caderno usa `resolution` e
+`resolutionReason`, preservando o texto da nota e a resposta. O mesmo
+APK exporta o conjunto de crônicas em PDF e a crônica aberta em PNG.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

@@ -22,6 +22,24 @@ cartão publicado e arraste para reorganizar. Ao reorganizar, os cartões que es
 fora da busca mantêm suas posições. Nas Crônicas, arrastar muda para
 ordem manual. No Mestre, o gesto reorganiza as notas dentro da seção.
 
+## Concluir hipóteses
+
+Em **Mistérios e pistas → Só hipóteses**, alterne entre **Ativas** e
+**Concluídas**. Marque a caixa do cartão, escolha **Confirmada** ou
+**Refutada** e registre como a mesa chegou à conclusão. Desmarque a
+caixa em **Concluídas** para voltar às ativas. O motivo anterior fica
+disponível ao concluir novamente. A hipótese preserva seu texto e seu
+nível de confiança.
+
+## Exportar crônicas
+
+Em **Crônicas**, use o ícone de PDF no cabeçalho para exportar todas
+as crônicas publicadas. O PDF segue a ordem selecionada na aba, reúne
+as datas, o texto, as capas e as ilustrações e pagina o conteúdo longo.
+Abra uma crônica e toque no ícone de imagem para gerar um PNG da página
+completa. O Android abre o menu do sistema para compartilhar ou guardar
+o arquivo. Se houver imagens, conecte-se para que elas sejam carregadas.
+
 ## Capas e páginas de leitura
 
 O índice tem uma ilustração por seção. Toque no título de um registro

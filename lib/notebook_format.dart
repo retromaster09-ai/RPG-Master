@@ -33,6 +33,20 @@ List<NotebookMark> readNotebookMarks(Object? value, int length) {
   ];
 }
 
+List<NotebookMark> sliceNotebookMarks(
+  List<NotebookMark> marks,
+  int start,
+  int end,
+) => [
+  for (final mark in marks)
+    if (mark.end > start && mark.start < end)
+      (
+        start: mark.start.clamp(start, end) - start,
+        end: mark.end.clamp(start, end) - start,
+        attributes: mark.attributes,
+      ),
+];
+
 List<Map<String, Object?>> writeNotebookMarks(List<NotebookMark> marks) => [
   for (final mark in marks)
     {'start': mark.start, 'end': mark.end, 'attributes': mark.attributes},

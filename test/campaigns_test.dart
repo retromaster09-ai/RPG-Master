@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:rpg_master_set/campaign_cover.dart';
 import 'package:rpg_master_set/campaigns.dart';
+import 'package:rpg_master_set/hypotheses.dart';
 import 'package:rpg_master_set/main.dart';
 import 'package:rpg_master_set/missions.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
@@ -401,6 +402,63 @@ void main() {
       await tester.tap(find.text('Nova hipótese'));
       await tester.pumpAndSettle();
       expect(find.text('Hipótese'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'conclui uma hipótese como refutada com motivo e reabre pelo cartão',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(440, 980));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _EditorRepository()
+        ..sessions = [
+          {
+            'id': 'suspect',
+            'title': 'Teoria da ponte',
+            'body': 'O guarda pode estar envolvido',
+            'category': 'Investigação',
+            'confidence': 'Hipótese',
+          },
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotebookScreen(
+            campaign: campaign,
+            repository: repository,
+            isOwner: false,
+            onBack: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mistérios e pistas'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Só hipóteses'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Concluir hipótese'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Conclusão da mesa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Refutada').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).last,
+        'O grupo encontrou outra entrada.',
+      );
+      await tester.tap(find.text('Concluir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Teoria da ponte'), findsNothing);
+      await tester.tap(find.text('Concluídas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Teoria da ponte'), findsOneWidget);
+      expect(find.text('Refutada'), findsOneWidget);
+      expect(find.text('O grupo encontrou outra entrada.'), findsOneWidget);
+      await tester.tap(find.byTooltip('Reabrir hipótese'));
+      await tester.pumpAndSettle();
+      expect(find.text('Teoria da ponte'), findsNothing);
+      await tester.tap(find.text('Ativas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Teoria da ponte'), findsOneWidget);
     },
   );
 
@@ -961,12 +1019,19 @@ class _EditorRepository extends Fake implements CampaignRepository {
     CampaignRecord? original,
     List<String>? dates,
     MissionPlan? mission,
+    HypothesisResolution? resolution,
     Uint8List? coverPng,
     NotebookPresentation? presentation,
   }) async {
     saves++;
     body = text.body;
     if (mission != null) this.mission = mission;
+    if (resolution != null) {
+      sessions = [
+        for (final entry in sessions)
+          if (entry['id'] == id) {...entry, ...resolution.toJson()} else entry,
+      ];
+    }
     if (presentation != null) this.presentation = presentation;
   }
 }
