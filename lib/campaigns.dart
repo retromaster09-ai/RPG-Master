@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -304,6 +305,26 @@ class Notebook {
     'revision': _revision,
     'epoch': _epoch,
   };
+}
+
+String notebookImportContentKey(CampaignRecord record) {
+  String clean(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final mission = record.mission;
+  return jsonEncode([
+    record.category,
+    clean(record.title),
+    clean(record.body),
+    clean(record.answer),
+    record.text.confidence,
+    (record.dates.map((date) => date.substring(0, 10)).toSet().toList()
+      ..sort()),
+    if (mission != null) ...[
+      mission.status.name,
+      mission.priority,
+      for (final step in mission.steps)
+        [clean(step.title), clean(step.details), step.completed],
+    ],
+  ]);
 }
 
 class NotebookConflict implements Exception {
@@ -666,6 +687,69 @@ class CampaignRepository {
     throw const NotebookConflict(
       'O caderno continua mudando. Tente salvar novamente.',
     );
+  }
+
+  Future<({int saved, int skipped})> importNotebookRecords(
+    String campaignId,
+    Notebook notebook,
+    List<CampaignRecord> selected,
+  ) async {
+    var result = (saved: 0, skipped: 0);
+    await _updateNotebook(campaignId, notebook, (latest) {
+      final entries = [...latest._entries];
+      final previous = {
+        for (final record in [
+          ...latest.records,
+          ...latest.sessions,
+          ...latest.trash,
+        ])
+          record.id: notebookImportContentKey(record),
+      };
+      final contentKeys = previous.values.toSet();
+      var added = 0;
+      var confirmed = 0;
+      var skipped = 0;
+      for (final record in selected) {
+        final id = record.id;
+        final category = record.category;
+        if (id == null ||
+            category == null ||
+            (record.title.trim().isEmpty &&
+                record.body.trim().isEmpty &&
+                record.answer.trim().isEmpty)) {
+          throw const NotebookConflict(
+            'Revise os registros selecionados e escolha a seção de cada um.',
+          );
+        }
+        final key = notebookImportContentKey(record);
+        if (previous.containsKey(id)) {
+          if (previous[id] == key) {
+            confirmed++;
+          } else {
+            skipped++;
+          }
+        } else if (!contentKeys.add(key)) {
+          skipped++;
+        } else {
+          entries.add(
+            _newEntry(
+              id,
+              category,
+              record.text,
+              record.dates,
+              record.mission,
+              null,
+              null,
+            ),
+          );
+          previous[id] = key;
+          added++;
+        }
+      }
+      result = (saved: confirmed + added, skipped: skipped);
+      return added == 0 ? null : entries;
+    });
+    return result;
   }
 
   Future<void> duplicateRecord(

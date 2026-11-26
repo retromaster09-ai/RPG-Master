@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:diacritic/diacritic.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,6 +24,8 @@ import 'offline_storage.dart';
 import 'organize_cards.dart';
 import 'session_dates.dart';
 import 'trash_screen.dart';
+import 'word_import.dart';
+import 'word_import_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -648,6 +652,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   bool _showCompletedMissions = false;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
+  bool _readingWord = false;
   final _missionWrites = <String>{};
   _NotebookDrag? _dragBasis;
   List<String>? _notebookOrderPreview;
@@ -775,6 +780,80 @@ class _NotebookScreenState extends State<NotebookScreen>
         onSaved: () => setState(() => _editor = null),
       );
     });
+  }
+
+  Future<void> _openWord() async {
+    final notebook = _sync.notebook;
+    if (_readingWord || notebook == null) return;
+    setState(() => _readingWord = true);
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: const [
+          XTypeGroup(
+            label: 'Documento Word',
+            extensions: ['docx'],
+            mimeTypes: [
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
+            uniformTypeIdentifiers: [
+              'org.openxmlformats.wordprocessingml.document',
+            ],
+          ),
+        ],
+      );
+      if (file == null || !mounted) return;
+      if (!file.name.toLowerCase().endsWith('.docx')) {
+        throw const FormatException(
+          'Escolha um documento Word no formato .docx.',
+        );
+      }
+      if (await file.length() > maxWordFileBytes) {
+        throw const FormatException('Escolha um documento de até 12 MB.');
+      }
+      final preview = await compute(readWordDocument, await file.readAsBytes());
+      if (!mounted) return;
+      setState(() {
+        _editor = WordImportScreen(
+          campaign: widget.campaign,
+          notebook: notebook,
+          preview: preview,
+          onClose: () => setState(() => _editor = null),
+          onImport: (selection) => _saveWordImport(notebook, selection),
+        );
+      });
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível abrir o arquivo Word.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _readingWord = false);
+    }
+  }
+
+  Future<void> _saveWordImport(
+    Notebook notebook,
+    List<CampaignRecord> selection,
+  ) async {
+    final result = await widget.repository
+        .importNotebookRecords(widget.campaign.id, notebook, selection)
+        .timeout(const Duration(seconds: 25));
+    if (!mounted) return;
+    setState(() => _editor = null);
+    unawaited(_sync.refresh());
+    final message = result.skipped == 0
+        ? '${result.saved} registros importados.'
+        : '${result.saved} registros importados. ${result.skipped} já existiam.';
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openTrash() {
@@ -1272,6 +1351,20 @@ class _NotebookScreenState extends State<NotebookScreen>
             style: Theme.of(context).textTheme.headlineSmall,
           ),
         ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            icon: _readingWord
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.upload_file_outlined),
+            onPressed: _readingWord || _trashBusy ? null : _openWord,
+            label: Text(_readingWord ? 'Lendo Word…' : 'Importar Word'),
+          ),
+        ),
+        const SizedBox(height: 6),
         for (final section in sections) _sectionCard(section),
       ],
     );

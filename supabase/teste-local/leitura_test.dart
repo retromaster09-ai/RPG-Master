@@ -693,6 +693,42 @@ void main() {
     expect(progress.status, MissionStatus.inProgress);
     expect(progress.priority, 'Alta');
     expect(progress.steps.single.toJson()['legacyDetail'], 'preservar');
+    final beforeImport = await playerRepo.readNotebook(campaignId);
+    final imported = CampaignRecord(
+      'A praça',
+      'A mesa encontrou uma estátua.',
+      id: newNotebookRecordId(),
+      category: 'Lugar',
+    );
+    final copy = CampaignRecord(
+      imported.title,
+      imported.body,
+      id: newNotebookRecordId(),
+      category: imported.category,
+    );
+    expect(
+      await playerRepo.importNotebookRecords(campaignId, beforeImport, [
+        imported,
+        copy,
+      ]),
+      (saved: 1, skipped: 1),
+    );
+    expect(
+      await playerRepo.importNotebookRecords(campaignId, beforeImport, [
+        imported,
+        copy,
+      ]),
+      (saved: 1, skipped: 1),
+    );
+    final afterImport = await gmRepo.readNotebook(campaignId);
+    expect(
+      afterImport.records
+          .where((entry) => entry.title == imported.title)
+          .single
+          .id,
+      imported.id,
+    );
+    expect(afterImport.records.any((entry) => entry.id == missionId), isTrue);
   }, timeout: const Timeout(Duration(seconds: 40)));
 }
 

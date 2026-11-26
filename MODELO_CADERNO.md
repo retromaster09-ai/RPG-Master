@@ -59,23 +59,29 @@ versão sem recorte, use **Restaurar fundo**. Toque em **Aplicar** e salve
 o registro para compartilhar. O processamento é local e somente a
 versão recortada adicional é enviada quando o registro é salvo.
 
-## Referência para implementar a importação Word e PDF
+## Importar um documento Word
 
-- Reconhecer títulos de seção por estilo e texto, inclusive variações de
-  grafia como “Objetivos, Missões e Quests”. Preencher uma prévia editável
-  com o tipo sugerido para cada registro e manter o texto original quando a
-  estrutura for ambígua.
-- Em Word, usar a estrutura de parágrafos, tabelas e listas, com seus
-  níveis e recuos. Reconhecer caixas marcadas e vazias em Unicode, nos
-  controles de formulário e nos símbolos cuja fonte identifica a marca.
-  Associar etapas e detalhes a uma missão quando a hierarquia estiver
-  clara. Preservar a marca da missão separadamente das marcas das etapas.
-- Identificar datas de sessão com formato inequívoco e manter o texto de
-  origem quando a data for ambígua. Na prévia, preservar linhas de tabelas,
-  contexto de pistas e distinção entre hipóteses e descobertas confirmadas.
-- Em PDF com texto, usar a disposição da página como pista para a ordem e
-  a hierarquia. Tratar páginas digitalizadas como dependentes de OCR e
-  permitir revisar o resultado antes de importar.
-- Mostrar a campanha e a área de destino antes de salvar. O mestre pode
-  revisar o destino de conteúdo privado antes de qualquer gravação.
-  Usar amostras fictícias para os testes no repositório público.
+Abra **Caderno → Importar Word** e escolha um arquivo `.docx` de até 12 MB.
+A prévia mostra a campanha de destino e as seções sugeridas. Toque no
+registro para revisar título, texto, seção, datas e etapas quando cabível.
+Selecione os registros desejados e confirme em **Importar para a campanha**.
+Só a confirmação envia os registros selecionados aos participantes da mesa.
+A prévia funciona localmente e o envio precisa de conexão.
+
+O leitor interpreta cabeçalhos, linhas de tabelas, recuos, caixas de
+seleção e datas explícitas. Conclusão da missão e conclusão dos passos
+são independentes. Hipóteses ficam com confiança **Hipótese**. Trechos
+sem seção, intervalos de datas e títulos repetidos começam desmarcados.
+Registros idênticos são ignorados. Os registros existentes são preservados
+mesmo quando você escolhe importar outro de título semelhante.
+
+Esta etapa importa o conteúdo textual, a estrutura e as datas do Word.
+A diagramação e as imagens incorporadas ficam no documento de origem.
+Use amostras fictícias nos testes do repositório público.
+
+## Referência para implementar a importação PDF
+
+Em PDF com texto, usar a disposição da página como pista para a ordem
+e a hierarquia. Tratar páginas digitalizadas como dependentes de OCR e
+permitir revisar o resultado antes de importar. Reutilizar a prévia do
+Word para conferir a campanha e a seção de destino.

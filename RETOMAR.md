@@ -4,8 +4,7 @@ Este arquivo resume as decisões para continuar a reconstrução em outro
 chat. Leia também o README e o histórico Git. Desde 0.17.0-dev.13,
 o caderno abre em um índice do [modelo dos jogadores](MODELO_CADERNO.md)
 e separa missões ativas das concluídas pelo estado já salvo.
-O mesmo arquivo descreve como interpretar a estrutura para importar Word
-e PDF em uma etapa futura.
+O mesmo arquivo documenta a importação de Word e o roteiro para PDF.
 
 A versão 0.17.0-dev.14 acrescenta índice ilustrado, capas nos registros
 compartilhados e páginas de leitura. Os dados de capa reutilizam
@@ -19,6 +18,12 @@ O 0.17.0-dev.16 acrescenta remoção de fundo por cor e ajuste de tamanho,
 zoom e posição nas imagens do texto. A imagem original mantém o campo
 `path` e o derivado usa `cutoutPath`, ambos no mesmo bucket privado.
 O ajuste usa `look` e preserva os campos legados não editados.
+
+O 0.17.0-dev.17 restaura a importação de Word no Caderno. O leitor
+local prepara a prévia, que deixa ambiguidade e títulos repetidos para
+revisão. O envio confirmado usa a revisão existente do caderno para incluir
+apenas os registros escolhidos, preservando o conteúdo anterior. PDF ainda
+é uma etapa futura. O Word dos jogadores fica fora do repositório.
 
 ## Situação
 
