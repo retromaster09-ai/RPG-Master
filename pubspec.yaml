@@ -1,7 +1,7 @@
 name: rpg_master_set
 description: Caderno colaborativo e roteiro privado de campanha.
 publish_to: none
-version: 0.17.0-dev.10+29
+version: 0.17.0-dev.11+30
 
 environment:
   sdk: ^3.14.0
@@ -12,6 +12,7 @@ dependencies:
   supabase_flutter: 2.18.3
   material_ui: 1.11.1
   crypto: 3.0.8
+  collection: 1.19.1
   diacritic: ^0.1.6
   file_selector: ^1.1.0
   path_provider: ^2.1.5

@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:rpg_master_set/campaign_cover.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/main.dart';
+import 'package:rpg_master_set/missions.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
 import 'package:rpg_master_set/offline_storage.dart';
 import 'package:rpg_master_set/organize_cards.dart';
@@ -466,6 +467,63 @@ void main() {
     expect(saved, ['b', 'a']);
   });
 
+  testWidgets(
+    'uma missão mostra o progresso depois de marcar e concluir a etapa',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(750, 1350));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _EditorRepository()..mission = const MissionPlan();
+      final storage = MemoryOfflineStorage();
+      Widget app() => MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          offlineStorage: storage,
+          onBack: () {},
+        ),
+      );
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Editar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Adicionar etapa'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome da etapa'),
+        'Procurar a carta',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Detalhes ou resultado'),
+        'No escritório',
+      );
+      await tester.tap(find.text('Salvar etapa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Procurar a carta'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      repository.online = false;
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rascunho neste aparelho'));
+      await tester.pumpAndSettle();
+      expect(find.text('No escritório'), findsOneWidget);
+      expect(
+        tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
+        isTrue,
+      );
+      await tester.tap(find.text('Concluir missão'));
+      await tester.pumpAndSettle();
+      repository.online = true;
+      await tester.ensureVisible(find.text('Salvar'));
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+      expect(repository.mission!.status, MissionStatus.completed);
+      expect(repository.mission!.steps.single.details, 'No escritório');
+      expect(find.text('1 de 1 etapas concluídas'), findsOneWidget);
+    },
+  );
+
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {
     final client = SupabaseClient(
       'https://example.invalid',
@@ -567,6 +625,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
   int epoch = 0;
   int saves = 0;
   bool trashed = false;
+  MissionPlan? mission;
   List<Map<String, Object>> sessions = const [];
 
   @override
@@ -580,7 +639,8 @@ class _EditorRepository extends Fake implements CampaignRepository {
           'id': 'entry',
           'title': 'Pista',
           'body': body,
-          'category': 'Investigação',
+          'category': mission == null ? 'Investigação' : 'Missão',
+          if (mission case final plan?) ...plan.toJson(),
           if (trashed) 'deletedAt': '2026-11-26T00:00:00.000Z',
         },
         ...sessions,
@@ -607,8 +667,10 @@ class _EditorRepository extends Fake implements CampaignRepository {
     required NotebookText text,
     CampaignRecord? original,
     List<String>? dates,
+    MissionPlan? mission,
   }) async {
     saves++;
     body = text.body;
+    if (mission != null) this.mission = mission;
   }
 }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campaigns.dart';
+import 'missions.dart';
 import 'offline_storage.dart';
 import 'session_dates.dart';
 
@@ -34,6 +35,7 @@ class NotebookDraft {
     required this.epoch,
     required this.text,
     this.dates,
+    this.mission,
     this.original,
     this.status = DraftStatus.editing,
     this.message,
@@ -46,6 +48,9 @@ class NotebookDraft {
     epoch: data['epoch'] as int,
     text: CampaignRecord.fromJson(data['text'] as Map<String, dynamic>).text,
     dates: data['dates'] == null ? null : readSessionDates(data['dates']),
+    mission: data['mission'] is Map<String, dynamic>
+        ? MissionPlan.fromJson(data['mission'] as Map<String, dynamic>)
+        : null,
     original: data['original'] == null
         ? null
         : CampaignRecord.fromJson(data['original'] as Map<String, dynamic>),
@@ -61,6 +66,7 @@ class NotebookDraft {
   final int epoch;
   final NotebookText text;
   final List<String>? dates;
+  final MissionPlan? mission;
   final CampaignRecord? original;
   final DraftStatus status;
   final String? message;
@@ -75,6 +81,7 @@ class NotebookDraft {
         epoch: epoch,
         text: text,
         dates: dates,
+        mission: mission,
         original: original,
         status: status,
         message: conflict?.message,
@@ -93,6 +100,7 @@ class NotebookDraft {
     },
     'original': original?.toJson(),
     'dates': dates,
+    'mission': mission?.toJson(),
     'status': status.name,
     'message': message,
     'remote': remote?.toJson(),
@@ -281,6 +289,7 @@ class NotebookSync extends ChangeNotifier {
             text: draft.text,
             original: draft.original,
             dates: draft.dates,
+            mission: draft.mission,
           )
           .timeout(notebookRequestTimeout);
       if (!_active) return;

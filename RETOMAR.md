@@ -72,8 +72,8 @@ as autorizações de cada função tocada e rode os testes novamente.
 O [levantamento das funções do app anterior](PARIDADE.md) registra o que
 falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
 cadastro por usuário e senha, criação de mesa, entrada por código ou convite
-e consulta de participantes. A próxima etapa do uso diário do caderno
-inclui etapas e progresso das missões.
+e consulta de participantes. As próximas etapas do uso diário do caderno
+incluem formatação e imagens entre parágrafos.
 
 O `0.17.0-dev.6` guarda localmente a lista de campanhas, a última revisão
 do caderno compartilhado e os rascunhos de texto. A chave é separada por
@@ -121,6 +121,14 @@ a pessoa viu ao abrir a lista. As Crônicas seguem com opção de ordem por
 data. As operações exigem conexão. A migração
 `20261126091536_rpg_order_gm_group` protege a organização dos grupos privados
 e está aplicada ao projeto de teste.
+
+O `0.17.0-dev.11` recupera prioridade, estados, etapas e progresso das
+missões. O app reaproveita os campos legados `priority`, `started`,
+`completed` e `steps` no caderno compartilhado. A fila preserva esses campos
+em rascunhos offline e reconcilia prioridade, estado e etapas de forma
+independente. Edições incompatíveis na lista de etapas ficam para revisão.
+O filtro por estado aparece ao selecionar **Missão** no Caderno. A busca
+inclui títulos e detalhes das etapas. Usa as RPCs existentes do caderno.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas

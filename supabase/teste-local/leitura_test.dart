@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rpg_master_set/accounts.dart';
 import 'package:rpg_master_set/campaigns.dart';
+import 'package:rpg_master_set/missions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -541,6 +542,64 @@ void main() {
           .where((record) => record.id == newId),
       hasLength(1),
     );
+    final missionId = newNotebookRecordId();
+    final mission = MissionPlan(
+      steps: [
+        MissionStep.fromJson({
+          'id': newNotebookRecordId(),
+          'title': 'Encontrar a chave',
+          'details': 'Estava com o vigia.',
+          'completed': false,
+          'legacyDetail': 'preservar',
+        }),
+      ],
+    );
+    final missionBaseline = await playerRepo.readNotebook(campaignId);
+    await playerRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: missionBaseline,
+      id: missionId,
+      category: 'Missão',
+      text: (
+        title: 'Abrir o portão',
+        body: '',
+        answer: '',
+        confidence: 'Não se aplica',
+      ),
+      mission: mission,
+    );
+    final baseline = await gmRepo.readNotebook(campaignId);
+    final quest = baseline.records.singleWhere(
+      (record) => record.id == missionId,
+    );
+    await gmRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: baseline,
+      id: missionId,
+      category: 'Missão',
+      text: quest.text,
+      original: quest,
+      mission: quest.mission!.copyWith(priority: 'Alta'),
+    );
+    await playerRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: baseline,
+      id: missionId,
+      category: 'Missão',
+      text: quest.text,
+      original: quest,
+      mission: quest.mission!.copyWith(
+        status: MissionStatus.inProgress,
+        steps: [quest.mission!.steps.single.copyWith(completed: true)],
+      ),
+    );
+    final progress = (await gmRepo.readNotebook(campaignId)).records
+        .singleWhere((record) => record.id == missionId)
+        .mission!;
+    expect(progress.completedSteps, 1);
+    expect(progress.status, MissionStatus.inProgress);
+    expect(progress.priority, 'Alta');
+    expect(progress.steps.single.toJson()['legacyDetail'], 'preservar');
   }, timeout: const Timeout(Duration(seconds: 40)));
 }
 

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
+import 'mission_fields.dart';
+import 'missions.dart';
 import 'notebook_sync.dart';
 import 'session_dates.dart';
 
@@ -64,6 +66,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
       _baseRecord?.category ??
       (widget.isSession ? 'Sessão' : _categories.first);
   late String _category = widget.savedDraft?.category ?? _startingCategory;
+  late final _startingMission =
+      widget.savedDraft?.mission ?? _baseRecord?.mission ?? const MissionPlan();
+  late MissionPlan _mission = _startingMission;
   late List<String> _dates =
       widget.savedDraft?.dates ?? _baseRecord?.dates ?? const [];
   bool _saving = false;
@@ -94,6 +99,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     epoch: widget.savedDraft?.epoch ?? widget.epoch,
     text: _draft,
     dates: widget.isSession ? _dates : null,
+    mission: _category == 'Missão' ? _mission : null,
     original: _baseRecord,
     status: status,
     message: status == DraftStatus.editing ? _error : null,
@@ -119,6 +125,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     if (widget.savedDraft == null &&
         !_savedLocally &&
         _draft == _original &&
+        (_category != 'Missão' || identical(_mission, _startingMission)) &&
         listEquals(_dates, _baseRecord?.dates ?? const []) &&
         _category == _startingCategory) {
       widget.onClose();
@@ -254,6 +261,12 @@ class _NotebookEditorState extends State<NotebookEditor> {
         _confidence = remote.confidence;
       }
       if (listEquals(_dates, previousRecord.dates)) _dates = current.dates;
+      if (current.mission case final mission?) {
+        _mission = _mission.rebase(
+          previousRecord.mission ?? const MissionPlan(),
+          mission,
+        );
+      }
       _baseRecord = current;
       _current = null;
       _error = null;
@@ -299,7 +312,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
                 onChanged: _saving
                     ? null
                     : (value) {
-                        _category = value!;
+                        setState(() => _category = value!);
                         unawaited(_persistDraft());
                       },
               ),
@@ -341,6 +354,16 @@ class _NotebookEditorState extends State<NotebookEditor> {
               minLines: 5,
               maxLines: 16,
             ),
+            if (_category == 'Missão')
+              MissionFields(
+                plan: _mission,
+                onChanged: _saving
+                    ? null
+                    : (plan) {
+                        setState(() => _mission = plan);
+                        unawaited(_persistDraft());
+                      },
+              ),
             TextField(
               controller: _answer,
               enabled: !_saving,
@@ -406,6 +429,21 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       onPressed: () => _compareWithSaved(current),
                       child: const Text('Manter meu rascunho para revisar'),
                     ),
+                  if (current.mission case final mission?) ...[
+                    MissionSummary(plan: mission),
+                    for (final step in mission.steps)
+                      ListTile(
+                        leading: Icon(
+                          step.completed
+                              ? Icons.check_box_outlined
+                              : Icons.check_box_outline_blank,
+                        ),
+                        title: Text(step.title),
+                        subtitle: step.details.isEmpty
+                            ? null
+                            : SelectableText(step.details),
+                      ),
+                  ],
                 ],
               ),
             const SizedBox(height: 12),

@@ -12,6 +12,8 @@ import 'campaign_cover.dart';
 import 'campaigns.dart';
 import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
+import 'mission_fields.dart';
+import 'missions.dart';
 import 'notebook_editor.dart';
 import 'notebook_sync.dart';
 import 'offline_storage.dart';
@@ -602,6 +604,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   Timer? _poll;
   final _search = TextEditingController();
   String? _category;
+  MissionStatus? _missionFilter;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
 
@@ -653,6 +656,7 @@ class _NotebookScreenState extends State<NotebookScreen>
     setState(() {
       _search.clear();
       _category = null;
+      _missionFilter = null;
       _tab = tab;
       if (_tab == _NotebookTab.private) {
         _privateNotes = widget.repository.readGmNotes(widget.campaign);
@@ -1038,8 +1042,16 @@ class _NotebookScreenState extends State<NotebookScreen>
         .where((term) => term.isNotEmpty);
     final searching = terms.isNotEmpty || _category != null;
 
-    bool matches(NotebookText text, String? category, List<String> dates) {
+    bool matches(
+      NotebookText text,
+      String? category,
+      List<String> dates,
+      MissionPlan? mission,
+    ) {
       if (_category != null && category != _category) return false;
+      if (_missionFilter != null && mission?.status != _missionFilter) {
+        return false;
+      }
       if (terms.isEmpty) return true;
       final content = removeDiacritics(
         [
@@ -1049,6 +1061,8 @@ class _NotebookScreenState extends State<NotebookScreen>
           text.confidence,
           category ?? '',
           ...dates.map(sessionDateLabel),
+          if (mission != null)
+            for (final step in mission.steps) ...[step.title, step.details],
         ].join(' ').toLowerCase(),
       );
       return terms.every(content.contains);
@@ -1060,6 +1074,7 @@ class _NotebookScreenState extends State<NotebookScreen>
           draft.text,
           draft.category,
           draft.dates ?? draft.original?.dates ?? const [],
+          draft.mission ?? draft.original?.mission,
         ))
           draft.id: draft,
     };
@@ -1068,7 +1083,12 @@ class _NotebookScreenState extends State<NotebookScreen>
         .where(
           (record) =>
               !draftIds.contains(record.id) &&
-              matches(record.text, record.category, record.dates),
+              matches(
+                record.text,
+                record.category,
+                record.dates,
+                record.mission,
+              ),
         )
         .toList(growable: false);
     final preference =
@@ -1166,7 +1186,35 @@ class _NotebookScreenState extends State<NotebookScreen>
               for (final category in categories)
                 DropdownMenuItem(value: category, child: Text(category)),
             ],
-            onChanged: (category) => setState(() => _category = category),
+            onChanged: (category) => setState(() {
+              _category = category;
+              _missionFilter = null;
+            }),
+          ),
+        ),
+      if (_category == 'Missão')
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DropdownButton<MissionStatus>(
+            value: _missionFilter,
+            hint: const Text('Todos os estados'),
+            isExpanded: true,
+            items: const [
+              DropdownMenuItem(child: Text('Todos os estados')),
+              DropdownMenuItem(
+                value: MissionStatus.open,
+                child: Text('Abertas'),
+              ),
+              DropdownMenuItem(
+                value: MissionStatus.inProgress,
+                child: Text('Em andamento'),
+              ),
+              DropdownMenuItem(
+                value: MissionStatus.completed,
+                child: Text('Concluídas'),
+              ),
+            ],
+            onChanged: (status) => setState(() => _missionFilter = status),
           ),
         ),
       for (final draft in drafts.values)
@@ -1176,11 +1224,19 @@ class _NotebookScreenState extends State<NotebookScreen>
             title: Text(
               draft.text.title.trim().isEmpty ? 'Sem título' : draft.text.title,
             ),
-            subtitle: Text(switch (draft.status) {
-              DraftStatus.editing => 'Rascunho neste aparelho',
-              DraftStatus.queued => 'Aguardando envio',
-              DraftStatus.review => 'Revisar edição',
-            }),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(switch (draft.status) {
+                  DraftStatus.editing => 'Rascunho neste aparelho',
+                  DraftStatus.queued => 'Aguardando envio',
+                  DraftStatus.review => 'Revisar edição',
+                }),
+                if (draft.mission ?? draft.original?.mission
+                    case final mission?)
+                  MissionSummary(plan: mission),
+              ],
+            ),
             onTap: draft.status == DraftStatus.queued
                 ? null
                 : () => _edit(notebook, draft: draft),
@@ -1276,6 +1332,8 @@ class _NotebookScreenState extends State<NotebookScreen>
                   ),
                 if (!isSession && record.category != null)
                   Text(record.category!),
+                if (record.mission case final mission?)
+                  MissionSummary(plan: mission),
                 if (record.confidence case final confidence?)
                   Text('Confiança · $confidence'),
                 if (record.body.isNotEmpty) SelectableText(record.body),

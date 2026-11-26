@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'missions.dart';
 import 'session_dates.dart';
 
 class Campaign {
@@ -96,6 +97,7 @@ class CampaignRecord {
     this.dates = const [],
     this.deletedAt,
     this.orders = const {},
+    this.mission,
   });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
@@ -113,6 +115,7 @@ class CampaignRecord {
       dates: readSessionDates(json['dates']),
       deletedAt: json['deletedAt'] as String?,
       orders: Map.unmodifiable(_orders(json['orders'])),
+      mission: category == 'Missão' ? MissionPlan.fromJson(json) : null,
       confidence:
           confidence is String &&
               confidence.isNotEmpty &&
@@ -131,6 +134,7 @@ class CampaignRecord {
   final List<String> dates;
   final String? deletedAt;
   final Map<String, dynamic> orders;
+  final MissionPlan? mission;
 
   int? orderIndex(String key) => _order(orders, key)?['index'] as int?;
 
@@ -151,6 +155,7 @@ class CampaignRecord {
     'dates': dates,
     'deletedAt': deletedAt,
     'orders': orders,
+    if (mission case final plan?) ...plan.toJson(),
   };
 }
 
@@ -479,6 +484,7 @@ class CampaignRepository {
     required NotebookText text,
     CampaignRecord? original,
     List<String>? dates,
+    MissionPlan? mission,
   }) async {
     if (original != null && original.id != id) {
       throw ArgumentError('O registro editado precisa ter o mesmo ID.');
@@ -502,7 +508,8 @@ class CampaignRepository {
           if (entries[index]['deletedAt'] == null &&
               existing.text == text &&
               existing.category == category &&
-              (dates == null || listEquals(existing.dates, dates))) {
+              (dates == null || listEquals(existing.dates, dates)) &&
+              (mission == null || _sameMission(mission, existing.mission))) {
             return;
           }
           throw NotebookConflict(
@@ -510,14 +517,20 @@ class CampaignRepository {
             current: existing,
           );
         }
-        entries.add(_newEntry(id, category, text, dates ?? const []));
+        entries.add(_newEntry(id, category, text, dates ?? const [], mission));
       } else {
         if (index < 0 || entries[index]['deletedAt'] != null) {
           throw const NotebookConflict(
             'Este registro foi removido durante a edição.',
           );
         }
-        final merged = _mergeEntry(entries[index], original, text, dates);
+        final merged = _mergeEntry(
+          entries[index],
+          original,
+          text,
+          dates,
+          mission,
+        );
         if (merged.isEmpty) return;
         entries[index] = {...entries[index], ...merged};
       }
@@ -889,6 +902,7 @@ Map<String, Object> _mergeEntry(
   CampaignRecord original,
   NotebookText draft,
   List<String>? dates,
+  MissionPlan? mission,
 ) {
   final current = CampaignRecord.fromJson(entry);
   final remote = current.text;
@@ -931,8 +945,41 @@ Map<String, Object> _mergeEntry(
     }
     changes['dates'] = dates;
   }
+  if (mission != null) {
+    final before = original.mission ?? const MissionPlan();
+    final saved = current.mission ?? const MissionPlan();
+    void check(bool ok, String field) {
+      if (!ok) {
+        throw NotebookConflict(
+          'Outra pessoa alterou $field da missão. Seu rascunho continua aberto.',
+          current: current,
+        );
+      }
+    }
+
+    if (mission.priority != before.priority &&
+        mission.priority != saved.priority) {
+      check(before.priority == saved.priority, 'a prioridade');
+      changes['priority'] = mission.priority;
+    }
+    if (!mission.sameStatus(before) && !mission.sameStatus(saved)) {
+      check(before.sameStatus(saved), 'o estado');
+      changes['started'] = mission.started;
+      changes['completed'] = mission.completed;
+    }
+    if (!mission.sameSteps(before) && !mission.sameSteps(saved)) {
+      check(before.sameSteps(saved), 'as etapas');
+      changes['steps'] = mission.steps.map((step) => step.toJson()).toList();
+    }
+  }
   return changes;
 }
+
+bool _sameMission(MissionPlan first, MissionPlan? second) =>
+    second != null &&
+    first.priority == second.priority &&
+    first.sameStatus(second) &&
+    first.sameSteps(second);
 
 List<Object?> _moveUnchangedMarks(Object? value, String old, String updated) {
   if (value is! List || value.isEmpty) return const [];
@@ -964,6 +1011,7 @@ Map<String, Object> _newEntry(
   String category,
   NotebookText text,
   List<String> dates,
+  MissionPlan? mission,
 ) => {
   'id': id,
   'category': category,
@@ -974,11 +1022,8 @@ Map<String, Object> _newEntry(
   'paper': 'Leitura simples',
   'source': '',
   'resolution': 'open',
-  'priority': 'Normal',
-  'started': false,
-  'completed': false,
+  ...(mission ?? const MissionPlan()).toJson(),
   'dates': dates,
-  'steps': <Object>[],
   'history': <Object>[],
   'pictures': <Object>[],
   'bodyMarks': <Object>[],

@@ -96,6 +96,14 @@ salvar a ordem. No Caderno e nas Crônicas, a ordem vale para a aba inteira.
 Na área Mestre, cada grupo é organizado separadamente. As Crônicas também
 podem voltar à ordem por data pelo botão de ordenação.
 
+Para acompanhar uma **Missão**, escolha essa categoria no editor do Caderno.
+Defina prioridade e estado, adicione etapas e registre detalhes ou resultados.
+Ao marcar a última etapa, o editor oferece **Concluir missão**. Alterar o
+estado de uma missão concluída preserva suas etapas. O cartão mostra o progresso.
+Filtre o Caderno por **Missão** para escolher o estado e use a busca para
+encontrar títulos e detalhes das etapas. O progresso segue a fila de rascunhos
+e sincronização do Caderno.
+
 Na aba **Mestre**, o criador da campanha pode criar e editar notas
 privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
 de cada nota para impedir que duas edições se sobrescrevam. O título,

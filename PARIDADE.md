@@ -15,6 +15,7 @@ cronológica nas crônicas. A versão `0.17.0-dev.9` recupera mover e restaurar
 na lixeira compartilhada e na privada. A versão `0.17.0-dev.10` recupera
 organização manual e duplicação. Lixeira offline e exclusão definitiva
 continuam pendentes.
+O `0.17.0-dev.11` recupera as etapas, os estados e o progresso das missões.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |
