@@ -18,6 +18,7 @@ import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
 import 'hypotheses.dart';
 import 'hypothesis_fields.dart';
+import 'login_audio.dart';
 import 'login_layout.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
@@ -153,6 +154,7 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _registering = false;
   bool _recovering = false;
   bool _showPassword = false;
+  late bool _soundEnabled = loginAudioEnabled;
   bool _busy = false;
   String? _error;
 
@@ -162,6 +164,13 @@ class _SignInScreenState extends State<SignInScreen> {
     _password.dispose();
     _passwordAgain.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitLogin(bool soundsAvailable) async {
+    if (!_busy && !_registering && soundsAvailable && _soundEnabled) {
+      playLoginAudio(entering: true);
+    }
+    await _signIn();
   }
 
   Future<void> _signIn() async {
@@ -206,7 +215,28 @@ class _SignInScreenState extends State<SignInScreen> {
         onClose: () => setState(() => _recovering = false),
       );
     }
+    final soundsAvailable = isDesktopWebLogin(MediaQuery.sizeOf(context).width);
+    final onTyping = soundsAvailable && _soundEnabled
+        ? (String _) => playLoginAudio(entering: false)
+        : null;
     return LoginLayout(
+      soundControl: soundsAvailable
+          ? IconButton.filledTonal(
+              tooltip: _soundEnabled
+                  ? 'Silenciar login'
+                  : 'Ativar sons do login',
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xbd161b34),
+                foregroundColor: const Color(0xffffe1ad),
+              ),
+              onPressed: () {
+                setState(() => _soundEnabled = !_soundEnabled);
+                setLoginAudioEnabled(_soundEnabled);
+                if (_soundEnabled) playLoginAudio(entering: false);
+              },
+              icon: Icon(_soundEnabled ? Icons.volume_up : Icons.volume_off),
+            )
+          : null,
       form: Form(
         key: _formKey,
         child: AutofillGroup(
@@ -221,6 +251,7 @@ class _SignInScreenState extends State<SignInScreen> {
               ],
               TextFormField(
                 controller: _identifier,
+                onChanged: onTyping,
                 enabled: !_busy,
                 autocorrect: false,
                 decoration: InputDecoration(
@@ -246,6 +277,7 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _password,
+                onChanged: onTyping,
                 enabled: !_busy,
                 decoration: InputDecoration(
                   labelText: 'Senha',
@@ -262,7 +294,9 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
                 obscureText: !_showPassword,
                 autofillHints: const [AutofillHints.password],
-                onFieldSubmitted: _registering ? null : (_) => _signIn(),
+                onFieldSubmitted: _registering
+                    ? null
+                    : (_) => _submitLogin(soundsAvailable),
                 validator: (text) {
                   if (text == null || text.isEmpty) {
                     return 'Informe sua senha.';
@@ -291,7 +325,7 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 20),
               if (_error case final error?) Text(error),
               FilledButton(
-                onPressed: _busy ? null : _signIn,
+                onPressed: _busy ? null : () => _submitLogin(soundsAvailable),
                 child: Text(
                   _busy
                       ? 'Aguarde…'

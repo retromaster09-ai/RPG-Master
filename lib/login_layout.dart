@@ -1,12 +1,25 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 
+bool isDesktopWebLogin(double width) =>
+    kIsWeb &&
+    width >= 760 &&
+    switch (defaultTargetPlatform) {
+      TargetPlatform.windows ||
+      TargetPlatform.linux ||
+      TargetPlatform.macOS => true,
+      _ => false,
+    };
+
 class LoginLayout extends StatelessWidget {
-  const LoginLayout({super.key, required this.form});
+  const LoginLayout({super.key, required this.form, this.soundControl});
 
   final Widget form;
+  final Widget? soundControl;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +94,7 @@ class LoginLayout extends StatelessWidget {
             final portrait =
                 constraints.maxWidth <= 740 &&
                 constraints.maxHeight > constraints.maxWidth;
+            final desktop = isDesktopWebLogin(constraints.maxWidth);
             final insets = MediaQuery.paddingOf(context);
             final keyboard = MediaQuery.viewInsetsOf(context).bottom;
             final short = constraints.maxHeight <= 650;
@@ -96,16 +110,19 @@ class LoginLayout extends StatelessWidget {
             return Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(
-                  portrait
-                      ? 'assets/brand/login-party-portrait.webp'
-                      : 'assets/brand/login-party.webp',
-                  key: const ValueKey('login-art'),
-                  fit: BoxFit.cover,
-                  alignment: const Alignment(0, -0.1),
-                  excludeFromSemantics: true,
-                  filterQuality: FilterQuality.medium,
-                ),
+                if (desktop)
+                  const _DesktopLoginArt()
+                else
+                  Image.asset(
+                    portrait
+                        ? 'assets/brand/login-party-portrait.webp'
+                        : 'assets/brand/login-party.webp',
+                    key: const ValueKey('login-art'),
+                    fit: BoxFit.cover,
+                    alignment: const Alignment(0, -0.1),
+                    excludeFromSemantics: true,
+                    filterQuality: FilterQuality.medium,
+                  ),
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -148,11 +165,83 @@ class LoginLayout extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (desktop && soundControl != null)
+                  Positioned(
+                    top: insets.top + 16,
+                    right: insets.right + 18,
+                    child: soundControl!,
+                  ),
               ],
             );
           },
         ),
       ),
+    );
+  }
+}
+
+class _DesktopLoginArt extends StatelessWidget {
+  const _DesktopLoginArt();
+
+  static const _asset = 'assets/brand/login-party.webp';
+  static const _aspect = 1.5;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= constraints.maxHeight * _aspect;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRect(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: Image.asset(
+                  _asset,
+                  fit: BoxFit.cover,
+                  color: const Color(0x66101630),
+                  colorBlendMode: BlendMode.srcATop,
+                  excludeFromSemantics: true,
+                ),
+              ),
+            ),
+            Center(
+              child: SizedBox(
+                width: math.min(
+                  constraints.maxWidth,
+                  constraints.maxHeight * _aspect,
+                ),
+                height: math.min(
+                  constraints.maxHeight,
+                  constraints.maxWidth / _aspect,
+                ),
+                child: ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: LinearGradient(
+                    begin: wide ? Alignment.centerLeft : Alignment.topCenter,
+                    end: wide ? Alignment.centerRight : Alignment.bottomCenter,
+                    stops: const [0, 0.055, 0.945, 1],
+                    colors: const [
+                      Colors.transparent,
+                      Colors.white,
+                      Colors.white,
+                      Colors.transparent,
+                    ],
+                  ).createShader,
+                  child: Image.asset(
+                    _asset,
+                    key: const ValueKey('login-art'),
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                    filterQuality: FilterQuality.medium,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

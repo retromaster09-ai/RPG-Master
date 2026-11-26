@@ -51,6 +51,13 @@ em telas largas. Para celular em pé, a adaptação aprovada fica em
 `assets/brand/login-party-portrait.webp`. A tela de entrada e as contas
 são compartilhadas pelas versões Android e web.
 
+O 0.17.0-dev.23 é uma atualização do pacote de PC. A arte em paisagem
+é centralizada pela proporção original, com a própria cena desfocada
+preenchendo as bordas. No login, o controle de som ativa o toque de
+cristal e o acorde de entrada. A preferência começa desligada e é
+guardada no navegador. Os sons são sintetizados em `web/login_audio.js`.
+O APK de celular recomendado continua na versão 0.17.0-dev.22.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android
