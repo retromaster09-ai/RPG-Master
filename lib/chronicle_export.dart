@@ -4,12 +4,11 @@ import 'dart:ui' as ui;
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/foundation.dart'
     show Uint8List, defaultTargetPlatform, kIsWeb;
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show MethodChannel, rootBundle;
 import 'package:file_selector/file_selector.dart' as files;
 import 'package:material_ui/material_ui.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:share_plus/share_plus.dart';
 
 import 'campaigns.dart';
 import 'notebook_format.dart';
@@ -26,30 +25,27 @@ String chronicleFileName(String title, String extension) {
   return '${trimmed.isEmpty ? 'cronica' : trimmed}.$extension';
 }
 
-Future<void> shareChronicleFile(
+Future<void> saveChronicleFile(
   Uint8List bytes,
   String name,
-  String mimeType, {
-  required Rect origin,
-}) async {
-  final file = XFile.fromData(bytes, name: name, mimeType: mimeType);
-  if (!kIsWeb &&
-      const {
-        TargetPlatform.linux,
-        TargetPlatform.macOS,
-        TargetPlatform.windows,
-      }.contains(defaultTargetPlatform)) {
-    final location = await files.getSaveLocation(suggestedName: name);
-    if (location != null) await file.saveTo(location.path);
+  String mimeType,
+) async {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    const android = MethodChannel('rpg_master_set/chronicle_export');
+    await android.invokeMethod<bool>('saveFile', {
+      'bytes': bytes,
+      'name': name,
+      'mimeType': mimeType,
+    });
     return;
   }
-  await SharePlus.instance.share(
-    ShareParams(
-      files: [file],
-      fileNameOverrides: [name],
-      sharePositionOrigin: origin,
-    ),
-  );
+  final file = files.XFile.fromData(bytes, name: name, mimeType: mimeType);
+  if (kIsWeb) {
+    await file.saveTo(name);
+    return;
+  }
+  final location = await files.getSaveLocation(suggestedName: name);
+  if (location != null) await file.saveTo(location.path);
 }
 
 sealed class _Block {

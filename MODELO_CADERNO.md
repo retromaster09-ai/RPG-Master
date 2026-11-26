@@ -37,7 +37,7 @@ Em **Crônicas**, use o ícone de PDF no cabeçalho para exportar todas
 as crônicas publicadas. O PDF segue a ordem selecionada na aba, reúne
 as datas, o texto, as capas e as ilustrações e pagina o conteúdo longo.
 Abra uma crônica e toque no ícone de imagem para gerar um PNG da página
-completa. O Android abre o menu do sistema para compartilhar ou guardar
+completa. O Android abre o seletor do sistema para escolher onde guardar
 o arquivo. Se houver imagens, conecte-se para que elas sejam carregadas.
 
 ## Capas e páginas de leitura

@@ -809,16 +809,11 @@ class _NotebookScreenState extends State<NotebookScreen>
             )
           : await exportChroniclePng(imageOf, readImage);
       if (!mounted) return;
-      final box = context.findRenderObject();
-      final origin = box is RenderBox && box.hasSize
-          ? box.localToGlobal(Offset.zero) & box.size
-          : const Rect.fromLTWH(0, 0, 1, 1);
       messenger.hideCurrentSnackBar();
-      await shareChronicleFile(
+      await saveChronicleFile(
         bytes,
         name,
         imageOf == null ? 'application/pdf' : 'image/png',
-        origin: origin,
       );
     } on FormatException catch (error) {
       if (mounted) {
