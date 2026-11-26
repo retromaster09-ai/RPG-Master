@@ -10,6 +10,7 @@ import 'accounts.dart';
 import 'campaign_access.dart';
 import 'campaign_cover.dart';
 import 'campaigns.dart';
+import 'cover_frame.dart';
 import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
 import 'mission_fields.dart';
@@ -1593,11 +1594,14 @@ class _NotebookScreenState extends State<NotebookScreen>
               if (record.coverHash case final hash?)
                 InkWell(
                   onTap: () => _readRecord(notebook, record),
-                  child: NotebookCoverImage(
-                    repository: widget.repository,
-                    campaignId: widget.campaign.id,
-                    hash: hash,
-                    height: 132,
+                  child: AspectRatio(
+                    aspectRatio: notebookCoverAspectRatio,
+                    child: NotebookCoverImage(
+                      repository: widget.repository,
+                      campaignId: widget.campaign.id,
+                      hash: hash,
+                      layout: record.presentation.cover,
+                    ),
                   ),
                 ),
               Padding(

@@ -22,7 +22,7 @@ Future<Uint8List?> pickCoverImage({int? maxPngBytes}) async {
     );
   }
   final input = await file.readAsBytes();
-  for (final size in [1400, 1000, 700, 480]) {
+  for (final size in [1400, 1000, 700, 480, 360]) {
     final png = await _coverPng(input, size);
     if (maxPngBytes == null || png.lengthInBytes <= maxPngBytes) return png;
   }

@@ -3,6 +3,9 @@ import 'dart:typed_data';
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
+import 'cover_frame.dart';
+import 'notebook_format.dart';
+import 'notebook_rich_text.dart';
 import 'mission_fields.dart';
 import 'session_dates.dart';
 
@@ -12,15 +15,13 @@ class NotebookCoverImage extends StatefulWidget {
     required this.repository,
     required this.campaignId,
     required this.hash,
-    required this.height,
-    this.fit = BoxFit.cover,
+    this.layout = const CampaignCoverLayout(fill: false),
   });
 
   final CampaignRepository repository;
   final String campaignId;
   final String hash;
-  final double height;
-  final BoxFit fit;
+  final CampaignCoverLayout layout;
 
   @override
   State<NotebookCoverImage> createState() => _NotebookCoverImageState();
@@ -48,21 +49,9 @@ class _NotebookCoverImageState extends State<NotebookCoverImage> {
     builder: (context, snapshot) {
       final bytes = snapshot.data;
       if (snapshot.connectionState != ConnectionState.done || bytes == null) {
-        return SizedBox(
-          height: widget.height,
-          child: const Center(child: Icon(Icons.image_outlined)),
-        );
+        return const Center(child: Icon(Icons.image_outlined));
       }
-      return Image.memory(
-        bytes,
-        width: double.infinity,
-        height: widget.height,
-        fit: widget.fit,
-        errorBuilder: (_, _, _) => SizedBox(
-          height: widget.height,
-          child: const Center(child: Icon(Icons.broken_image_outlined)),
-        ),
-      );
+      return CoverFrame(bytes: bytes, layout: widget.layout);
     },
   );
 }
@@ -110,35 +99,24 @@ class NotebookPage extends StatelessWidget {
             if (record.coverHash case final hash?)
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: NotebookCoverImage(
-                    repository: repository,
-                    campaignId: campaignId,
-                    hash: hash,
-                    height: 248,
-                    fit: BoxFit.contain,
+                child: SizedBox(
+                  height: 248,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: NotebookCoverImage(
+                      repository: repository,
+                      campaignId: campaignId,
+                      hash: hash,
+                    ),
                   ),
                 ),
               ),
-            SelectableText(record.title, style: theme.textTheme.headlineMedium),
-            if (record.dates.isNotEmpty)
-              Text(record.dates.map(sessionDateLabel).join(' · ')),
-            if (record.confidence case final confidence?)
-              Text('Confiança · $confidence'),
-            if (record.body.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: SelectableText(
-                  record.body,
-                  style: theme.textTheme.bodyLarge,
-                ),
-              ),
-            if (record.answer.isNotEmpty) ...[
-              const SizedBox(height: 18),
-              Text('Resposta', style: theme.textTheme.titleMedium),
-              SelectableText(record.answer, style: theme.textTheme.bodyLarge),
-            ],
+            _ReadingSheet(
+              record: record,
+              theme: theme,
+              repository: repository,
+              campaignId: campaignId,
+            ),
             if (record.mission case final plan?) ...[
               const SizedBox(height: 18),
               MissionSummary(plan: plan),
@@ -147,6 +125,197 @@ class NotebookPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ReadingSheet extends StatelessWidget {
+  const _ReadingSheet({
+    required this.record,
+    required this.theme,
+    required this.repository,
+    required this.campaignId,
+  });
+
+  final CampaignRecord record;
+  final ThemeData theme;
+  final CampaignRepository repository;
+  final String campaignId;
+
+  List<Widget> _body(TextStyle? style, bool lightPaper) {
+    final presentation = record.presentation;
+    final text = record.body;
+    if (presentation.pictures.isEmpty) {
+      return [
+        if (text.isNotEmpty)
+          SelectableText.rich(
+            notebookTextSpan(
+              text,
+              presentation.bodyMarks,
+              style,
+              lightPaper: lightPaper,
+            ),
+          ),
+      ];
+    }
+    final paragraphs = notebookParagraphs(text);
+    final pictures = <int, List<NotebookPicture>>{};
+    for (final picture in presentation.pictures) {
+      final position = picture.afterParagraph.clamp(-1, paragraphs.length - 1);
+      pictures.putIfAbsent(position, () => []).add(picture);
+    }
+    return [
+      for (final picture in pictures[-1] ?? const <NotebookPicture>[])
+        _illustration(picture, style),
+      for (final (index, range) in paragraphs.indexed) ...[
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SelectableText.rich(
+            notebookTextSpan(
+              text.substring(range.start, range.end),
+              [
+                for (final mark in presentation.bodyMarks)
+                  if (mark.end > range.start && mark.start < range.end)
+                    (
+                      start:
+                          mark.start.clamp(range.start, range.end) -
+                          range.start,
+                      end: mark.end.clamp(range.start, range.end) - range.start,
+                      attributes: mark.attributes,
+                    ),
+              ],
+              style,
+              lightPaper: lightPaper,
+            ),
+          ),
+        ),
+        for (final picture in pictures[index] ?? const <NotebookPicture>[])
+          _illustration(picture, style),
+      ],
+    ];
+  }
+
+  Widget _illustration(NotebookPicture picture, TextStyle? style) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (picture.hash case final hash?)
+          SizedBox(
+            height: 210,
+            child: NotebookCoverImage(
+              repository: repository,
+              campaignId: campaignId,
+              hash: hash,
+            ),
+          ),
+        if (picture.caption.isNotEmpty)
+          Text(
+            picture.caption,
+            textAlign: TextAlign.center,
+            style: style?.copyWith(fontStyle: FontStyle.italic),
+          ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final presentation = record.presentation;
+    final (
+      background,
+      edge,
+      ink,
+      font,
+      lightPaper,
+    ) = switch (presentation.paper) {
+      NotebookPaper.plain => (
+        null,
+        null,
+        theme.colorScheme.onSurface,
+        null,
+        false,
+      ),
+      NotebookPaper.parchment => (
+        const Color(0xfff4dfae),
+        const Color(0xffe0bb83),
+        const Color(0xff3f2818),
+        'RpgScript',
+        true,
+      ),
+      NotebookPaper.diary => (
+        const Color(0xffead0a7),
+        const Color(0xffc19771),
+        const Color(0xff48261e),
+        'Crimson Text',
+        true,
+      ),
+      NotebookPaper.future => (
+        const Color(0xff142736),
+        const Color(0xff101d2a),
+        const Color(0xffceeeff),
+        'RpgMono',
+        false,
+      ),
+    };
+    final bodyStyle = theme.textTheme.bodyLarge?.copyWith(
+      fontFamily: font,
+      color: ink,
+      fontSize: presentation.paper == NotebookPaper.parchment ? 19 : null,
+      height: 1.55,
+    );
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SelectableText(
+          record.title,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontFamily: font,
+            color: ink,
+          ),
+        ),
+        if (record.dates.isNotEmpty)
+          Text(
+            record.dates.map(sessionDateLabel).join(' · '),
+            style: bodyStyle,
+          ),
+        if (record.confidence case final confidence?)
+          Text('Confiança · $confidence', style: bodyStyle),
+        if (record.body.isNotEmpty || presentation.pictures.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ..._body(bodyStyle, lightPaper),
+        ],
+        if (record.answer.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          Text(
+            'Resposta',
+            style: bodyStyle?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          SelectableText.rich(
+            notebookTextSpan(
+              record.answer,
+              presentation.answerMarks,
+              bodyStyle,
+              lightPaper: lightPaper,
+            ),
+          ),
+        ],
+      ],
+    );
+    if (background == null || edge == null) return content;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: edge),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [background, edge, background],
+          stops: const [0, 0.86, 1],
+        ),
+      ),
+      child: content,
     );
   }
 }

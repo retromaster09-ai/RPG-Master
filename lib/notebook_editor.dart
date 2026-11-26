@@ -5,10 +5,13 @@ import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
 import 'cover_picker.dart';
+import 'cover_frame.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
 import 'notebook_sync.dart';
 import 'notebook_page.dart';
+import 'notebook_format.dart';
+import 'notebook_rich_text.dart';
 import 'session_dates.dart';
 
 class NotebookEditor extends StatefulWidget {
@@ -70,8 +73,21 @@ class _NotebookEditorState extends State<NotebookEditor> {
       );
   late final _initial = widget.savedDraft?.text ?? _original;
   late final _title = TextEditingController(text: _initial.title);
-  late final _body = TextEditingController(text: _initial.body);
-  late final _answer = TextEditingController(text: _initial.answer);
+  late final _initialPresentation =
+      widget.savedDraft?.presentation ??
+      _baseRecord?.presentation ??
+      const NotebookPresentation();
+  late final _body = NotebookTextController(
+    _initial.body,
+    _initialPresentation.bodyMarks,
+  );
+  late final _answer = NotebookTextController(
+    _initial.answer,
+    _initialPresentation.answerMarks,
+  );
+  late NotebookPaper _paper = _initialPresentation.paper;
+  late CampaignCoverLayout _coverLayout = _initialPresentation.cover;
+  late List<NotebookPicture> _pictures = _initialPresentation.pictures;
   late String _confidence = _initial.confidence;
   late final String _startingCategory =
       _baseRecord?.category ??
@@ -100,13 +116,35 @@ class _NotebookEditorState extends State<NotebookEditor> {
     confidence: _confidence,
   );
 
-  Future<void> _chooseCover() async {
+  NotebookPresentation get _presentation => NotebookPresentation(
+    paper: _paper,
+    cover: _coverLayout,
+    bodyMarks: _body.marks,
+    answerMarks: _answer.marks,
+    pictures: _pictures,
+  );
+
+  Future<void> _chooseImage({bool inline = false}) async {
     if (_saving || _choosingCover) return;
     setState(() => _choosingCover = true);
     try {
-      final image = await pickCoverImage(maxPngBytes: 1024 * 1024);
+      final image = await pickCoverImage(
+        maxPngBytes: inline ? 512 * 1024 : 1024 * 1024,
+      );
       if (!mounted || image == null) return;
-      setState(() => _coverPng = image);
+      setState(() {
+        if (inline) {
+          _pictures = [
+            ..._pictures,
+            NotebookPicture(
+              png: image,
+              afterParagraph: notebookParagraphs(_body.text).length - 1,
+            ),
+          ];
+        } else {
+          _coverPng = image;
+        }
+      });
       await _persistDraft();
     } on FormatException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -129,21 +167,31 @@ class _NotebookEditorState extends State<NotebookEditor> {
         if (hasCover)
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: selected != null
-                ? Image.memory(selected, height: 150, fit: BoxFit.contain)
-                : NotebookCoverImage(
-                    repository: widget.sync.repository,
-                    campaignId: widget.sync.campaignId,
-                    hash: existing!,
-                    height: 150,
-                    fit: BoxFit.contain,
-                  ),
+            child: AspectRatio(
+              aspectRatio: notebookCoverAspectRatio,
+              child: selected != null
+                  ? CoverFrame(bytes: selected, layout: _coverLayout)
+                  : NotebookCoverImage(
+                      repository: widget.sync.repository,
+                      campaignId: widget.sync.campaignId,
+                      hash: existing!,
+                      layout: _coverLayout,
+                    ),
+            ),
+          ),
+        if (hasCover)
+          NotebookCoverControls(
+            layout: _coverLayout,
+            onChanged: disabled
+                ? null
+                : (layout) => setState(() => _coverLayout = layout),
+            onChangeEnd: () => unawaited(_persistDraft()),
           ),
         Wrap(
           spacing: 8,
           children: [
             TextButton.icon(
-              onPressed: disabled ? null : _chooseCover,
+              onPressed: disabled ? null : _chooseImage,
               icon: const Icon(Icons.image_outlined),
               label: Text(hasCover ? 'Trocar capa' : 'Escolher capa'),
             ),
@@ -163,6 +211,95 @@ class _NotebookEditorState extends State<NotebookEditor> {
     );
   }
 
+  Widget _pictureFields() => ExpansionTile(
+    title: const Text('Imagens no texto'),
+    children: [
+      for (final (index, picture) in _pictures.indexed)
+        ListTile(
+          leading: const Icon(Icons.image_outlined),
+          title: Text(
+            picture.caption.isEmpty ? 'Imagem ${index + 1}' : picture.caption,
+          ),
+          subtitle: Text(_picturePosition(picture.afterParagraph)),
+          onTap: _saving || _choosingCover ? null : () => _editPicture(index),
+          trailing: IconButton(
+            tooltip: 'Remover imagem ${index + 1} do texto',
+            icon: const Icon(Icons.close),
+            onPressed: _saving || _choosingCover
+                ? null
+                : () {
+                    setState(() => _pictures = [..._pictures]..removeAt(index));
+                    unawaited(_persistDraft());
+                  },
+          ),
+        ),
+      const Padding(
+        padding: EdgeInsets.all(8),
+        child: Text('Separe os parágrafos com uma linha em branco.'),
+      ),
+      TextButton.icon(
+        onPressed: _saving || _choosingCover
+            ? null
+            : () => _chooseImage(inline: true),
+        icon: const Icon(Icons.add_photo_alternate_outlined),
+        label: const Text('Inserir imagem no texto'),
+      ),
+    ],
+  );
+
+  String _picturePosition(int index) =>
+      index < 0 ? 'Antes do texto' : 'Depois do parágrafo ${index + 1}';
+
+  Future<void> _editPicture(int index) async {
+    final paragraphCount = notebookParagraphs(_body.text).length;
+    final picture = _pictures[index];
+    var caption = picture.caption;
+    var position = picture.afterParagraph.clamp(-1, paragraphCount - 1);
+    final edited = await showDialog<NotebookPicture>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Imagem no texto'),
+        scrollable: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              initialValue: caption,
+              decoration: const InputDecoration(labelText: 'Legenda'),
+              onChanged: (value) => caption = value,
+            ),
+            DropdownButtonFormField<int>(
+              isExpanded: true,
+              initialValue: position,
+              decoration: const InputDecoration(labelText: 'Posição no texto'),
+              items: [
+                for (var i = -1; i < paragraphCount; i++)
+                  DropdownMenuItem(value: i, child: Text(_picturePosition(i))),
+              ],
+              onChanged: (value) => position = value!,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              context,
+              picture.edit(caption: caption, afterParagraph: position),
+            ),
+            child: const Text('Aplicar'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || edited == null) return;
+    setState(() => _pictures = [..._pictures]..[index] = edited);
+    await _persistDraft();
+  }
+
   @override
   void dispose() {
     _title.dispose();
@@ -179,6 +316,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     dates: widget.isSession ? _dates : null,
     mission: _category == 'Missão' ? _mission : null,
     coverPng: _coverPng,
+    presentation: _presentation,
     original: _baseRecord,
     status: status,
     message: status == DraftStatus.editing ? _error : null,
@@ -204,6 +342,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     if (widget.savedDraft == null &&
         !_savedLocally &&
         _coverPng == null &&
+        _presentation.sameAs(_initialPresentation) &&
         _draft == _original &&
         (_category != 'Missão' || identical(_mission, _startingMission)) &&
         listEquals(_dates, _baseRecord?.dates ?? const []) &&
@@ -334,8 +473,16 @@ class _NotebookEditorState extends State<NotebookEditor> {
     final draft = _draft;
     final remote = current.text;
     if (draft.title == previous.title) _title.text = remote.title;
-    if (draft.body == previous.body) _body.text = remote.body;
-    if (draft.answer == previous.answer) _answer.text = remote.answer;
+    final before = previousRecord.presentation;
+    final saved = current.presentation;
+    if (draft.body == previous.body &&
+        sameNotebookMarks(_body.marks, before.bodyMarks)) {
+      _body.replaceFormatted(remote.body, saved.bodyMarks);
+    }
+    if (draft.answer == previous.answer &&
+        sameNotebookMarks(_answer.marks, before.answerMarks)) {
+      _answer.replaceFormatted(remote.answer, saved.answerMarks);
+    }
     setState(() {
       if (draft.confidence == previous.confidence) {
         _confidence = remote.confidence;
@@ -347,6 +494,13 @@ class _NotebookEditorState extends State<NotebookEditor> {
           mission,
         );
       }
+      if (_paper == before.paper) _paper = saved.paper;
+      if (sameNotebookPictures(_pictures, before.pictures)) {
+        _pictures = saved.pictures;
+      }
+      if (sameCoverLayout(_coverLayout, before.cover)) {
+        _coverLayout = saved.cover;
+      }
       _baseRecord = current;
       _current = null;
       _error = null;
@@ -357,6 +511,13 @@ class _NotebookEditorState extends State<NotebookEditor> {
   @override
   Widget build(BuildContext context) {
     final current = _current;
+    final writingStyle = TextStyle(
+      fontFamily: switch (_paper) {
+        NotebookPaper.parchment => 'RpgScript',
+        NotebookPaper.future => 'RpgMono',
+        _ => null,
+      },
+    );
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (popped, _) {
@@ -433,8 +594,29 @@ class _NotebookEditorState extends State<NotebookEditor> {
                 ],
               ),
             ],
+            DropdownButtonFormField<NotebookPaper>(
+              key: ValueKey(_paper),
+              initialValue: _paper,
+              decoration: const InputDecoration(labelText: 'Estilo da página'),
+              items: [
+                for (final paper in NotebookPaper.values)
+                  DropdownMenuItem(value: paper, child: Text(paper.label)),
+              ],
+              onChanged: _saving
+                  ? null
+                  : (paper) {
+                      setState(() => _paper = paper!);
+                      unawaited(_persistDraft());
+                    },
+            ),
+            NotebookFormattingBar(
+              controller: _body,
+              enabled: !_saving,
+              onChanged: () => unawaited(_persistDraft()),
+            ),
             TextField(
               controller: _body,
+              style: writingStyle,
               enabled: !_saving,
               onChanged: (_) => unawaited(_persistDraft()),
               decoration: const InputDecoration(labelText: 'Texto'),
@@ -452,8 +634,15 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       },
               ),
             _coverFields(),
+            _pictureFields(),
+            NotebookFormattingBar(
+              controller: _answer,
+              enabled: !_saving,
+              onChanged: () => unawaited(_persistDraft()),
+            ),
             TextField(
               controller: _answer,
+              style: writingStyle,
               enabled: !_saving,
               onChanged: (_) => unawaited(_persistDraft()),
               decoration: const InputDecoration(labelText: 'Resposta'),

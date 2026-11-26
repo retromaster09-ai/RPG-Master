@@ -9,9 +9,11 @@ e PDF em uma etapa futura.
 
 A versão 0.17.0-dev.14 acrescenta índice ilustrado, capas nos registros
 compartilhados e páginas de leitura. Os dados de capa reutilizam
-`imagePath` e o bucket de membros existente, sem migração. A etapa
-seguinte é restaurar a formatação, os estilos de página e as imagens
-entre parágrafos.
+`imagePath` e o bucket de membros existente, sem migração. O 0.17.0-dev.15 recupera no Caderno e nas Crônicas
+os estilos de página, a formatação de texto e as imagens entre parágrafos.
+O enquadramento fica em `thumbLook` e a página de leitura mostra a capa
+inteira. As marcas usam posições UTF-16 e os campos `bodyMarks` e
+`answerMarks`. A formatação no roteiro privado ainda é uma etapa à parte.
 
 ## Situação
 

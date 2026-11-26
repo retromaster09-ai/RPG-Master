@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'missions.dart';
+import 'notebook_format.dart';
 import 'session_dates.dart';
 
 class Campaign {
@@ -70,6 +71,55 @@ class CampaignCoverLayout {
   Map<String, Object> toJson() => {'fill': fill, 'zoom': zoom, 'x': x, 'y': y};
 }
 
+class NotebookPresentation {
+  const NotebookPresentation({
+    this.paper = NotebookPaper.plain,
+    this.cover = const CampaignCoverLayout(fill: false),
+    this.bodyMarks = const [],
+    this.answerMarks = const [],
+    this.pictures = const [],
+  });
+
+  factory NotebookPresentation.fromJson(
+    Map<String, dynamic> json,
+    NotebookText text,
+  ) => NotebookPresentation(
+    paper: NotebookPaper.read(json['paper']),
+    cover: switch (json['thumbLook']) {
+      final Map layout when layout['fill'] is bool =>
+        CampaignCoverLayout.fromJson(layout),
+      _ => const CampaignCoverLayout(fill: false),
+    },
+    bodyMarks: readNotebookMarks(json['bodyMarks'], text.body.length),
+    answerMarks: readNotebookMarks(json['answerMarks'], text.answer.length),
+    pictures: readNotebookPictures(json['pictures']),
+  );
+
+  final NotebookPaper paper;
+  final CampaignCoverLayout cover;
+  final List<NotebookMark> bodyMarks;
+  final List<NotebookMark> answerMarks;
+  final List<NotebookPicture> pictures;
+
+  Map<String, Object?> toJson() => {
+    'paper': paper.label,
+    'thumbLook': cover.toJson(),
+    'bodyMarks': writeNotebookMarks(bodyMarks),
+    'answerMarks': writeNotebookMarks(answerMarks),
+    'pictures': pictures.map((picture) => picture.toJson()).toList(),
+  };
+
+  bool sameAs(NotebookPresentation other) =>
+      paper == other.paper &&
+      sameCoverLayout(cover, other.cover) &&
+      sameNotebookMarks(bodyMarks, other.bodyMarks) &&
+      sameNotebookMarks(answerMarks, other.answerMarks) &&
+      sameNotebookPictures(pictures, other.pictures);
+}
+
+bool sameCoverLayout(CampaignCoverLayout a, CampaignCoverLayout b) =>
+    a.fill == b.fill && a.zoom == b.zoom && a.x == b.x && a.y == b.y;
+
 class CampaignCoverConflict implements Exception {
   const CampaignCoverConflict();
 }
@@ -99,6 +149,7 @@ class CampaignRecord {
     this.orders = const {},
     this.mission,
     this.coverHash,
+    this.presentation = const NotebookPresentation(),
   });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
@@ -107,16 +158,23 @@ class CampaignRecord {
     final answer = json['answer'];
     final category = json['category'];
     final confidence = json['confidence'];
-    return CampaignRecord(
-      title is String ? title : '',
-      body is String ? body : '',
-      id: json['id'] is String ? json['id'] as String : null,
+    final text = (
+      title: title is String ? title : '',
+      body: body is String ? body : '',
       answer: answer is String ? answer : '',
+      confidence: confidence is String ? confidence : 'Não se aplica',
+    );
+    return CampaignRecord(
+      text.title,
+      text.body,
+      id: json['id'] is String ? json['id'] as String : null,
+      answer: text.answer,
       category: category is String && category.isNotEmpty ? category : null,
       dates: readSessionDates(json['dates']),
       deletedAt: json['deletedAt'] as String?,
       orders: Map.unmodifiable(_orders(json['orders'])),
-      coverHash: _readNotebookCoverHash(json['imagePath']),
+      coverHash: notebookMediaHash(json['imagePath']),
+      presentation: NotebookPresentation.fromJson(json, text),
       mission: category == 'Missão' ? MissionPlan.fromJson(json) : null,
       confidence:
           confidence is String &&
@@ -138,6 +196,7 @@ class CampaignRecord {
   final Map<String, dynamic> orders;
   final MissionPlan? mission;
   final String? coverHash;
+  final NotebookPresentation presentation;
 
   int? orderIndex(String key) => _order(orders, key)?['index'] as int?;
 
@@ -158,16 +217,10 @@ class CampaignRecord {
     'dates': dates,
     'deletedAt': deletedAt,
     'orders': orders,
+    ...presentation.toJson(),
     if (coverHash != null) 'imagePath': 'rpg-media:$coverHash',
     if (mission case final plan?) ...plan.toJson(),
   };
-}
-
-String? _readNotebookCoverHash(Object? path) {
-  const prefix = 'rpg-media:';
-  if (path is! String || !path.startsWith(prefix)) return null;
-  final hash = path.substring(prefix.length);
-  return _coverHash.hasMatch(hash) ? hash : null;
 }
 
 typedef NotebookText = ({
@@ -500,6 +553,7 @@ class CampaignRepository {
     List<String>? dates,
     MissionPlan? mission,
     Uint8List? coverPng,
+    NotebookPresentation? presentation,
   }) async {
     if (original != null && original.id != id) {
       throw ArgumentError('O registro editado precisa ter o mesmo ID.');
@@ -511,6 +565,30 @@ class CampaignRepository {
         : coverPng.isEmpty
         ? ''
         : await _uploadCover(campaignId, coverPng, 'rpg-notes');
+    if (presentation != null &&
+        presentation.pictures.any((picture) => picture.png != null)) {
+      final pictures = <NotebookPicture>[];
+      for (final picture in presentation.pictures) {
+        if (_client.auth.currentUser?.id != author) {
+          throw const AuthException('A conta mudou durante o envio.');
+        }
+        final bytes = picture.png;
+        pictures.add(
+          bytes == null
+              ? picture
+              : picture.uploaded(
+                  await _uploadCover(campaignId, bytes, 'rpg-notes'),
+                ),
+        );
+      }
+      presentation = NotebookPresentation(
+        paper: presentation.paper,
+        cover: presentation.cover,
+        bodyMarks: presentation.bodyMarks,
+        answerMarks: presentation.answerMarks,
+        pictures: pictures,
+      );
+    }
     var latest = notebook;
     for (var attempt = 0; attempt < 3; attempt++) {
       if (_client.auth.currentUser?.id != author) {
@@ -530,6 +608,8 @@ class CampaignRepository {
               existing.text == text &&
               existing.category == category &&
               (newCover == null || newCover == (existing.coverHash ?? '')) &&
+              (presentation == null ||
+                  presentation.sameAs(existing.presentation)) &&
               (dates == null || listEquals(existing.dates, dates)) &&
               (mission == null || _sameMission(mission, existing.mission))) {
             return;
@@ -540,7 +620,15 @@ class CampaignRepository {
           );
         }
         entries.add(
-          _newEntry(id, category, text, dates ?? const [], mission, newCover),
+          _newEntry(
+            id,
+            category,
+            text,
+            dates ?? const [],
+            mission,
+            newCover,
+            presentation,
+          ),
         );
       } else {
         if (index < 0 || entries[index]['deletedAt'] != null) {
@@ -555,6 +643,7 @@ class CampaignRepository {
           dates,
           mission,
           newCover,
+          presentation,
         );
         if (merged.isEmpty) return;
         entries[index] = {...entries[index], ...merged};
@@ -929,6 +1018,7 @@ Map<String, Object?> _mergeEntry(
   List<String>? dates,
   MissionPlan? mission,
   String? newCover,
+  NotebookPresentation? presentation,
 ) {
   final current = CampaignRecord.fromJson(entry);
   final remote = current.text;
@@ -947,6 +1037,34 @@ Map<String, Object?> _mergeEntry(
       draft.confidence,
     ),
   ]) {
+    final marks = switch (name) {
+      'body' when presentation != null => (
+        original.presentation.bodyMarks,
+        current.presentation.bodyMarks,
+        presentation.bodyMarks,
+      ),
+      'answer' when presentation != null => (
+        original.presentation.answerMarks,
+        current.presentation.answerMarks,
+        presentation.answerMarks,
+      ),
+      _ => null,
+    };
+    if (marks case (final beforeMarks, final savedMarks, final desiredMarks)) {
+      if ((desired == before && sameNotebookMarks(beforeMarks, desiredMarks)) ||
+          (desired == saved && sameNotebookMarks(savedMarks, desiredMarks))) {
+        continue;
+      }
+      if (saved != before || !sameNotebookMarks(beforeMarks, savedMarks)) {
+        throw NotebookConflict(
+          'Outra pessoa alterou $label ou sua formatação. Seu rascunho continua aberto.',
+          current: current,
+        );
+      }
+      if (saved != desired) changes[name] = desired;
+      changes['${name}Marks'] = writeNotebookMarks(desiredMarks);
+      continue;
+    }
     if (desired == before || desired == saved) continue;
     if (saved != before) {
       throw NotebookConflict(
@@ -970,6 +1088,53 @@ Map<String, Object?> _mergeEntry(
       );
     }
     changes['imagePath'] = newCover.isEmpty ? null : 'rpg-media:$newCover';
+  }
+  if (presentation != null) {
+    final before = original.presentation;
+    final saved = current.presentation;
+    if (presentation.paper != before.paper &&
+        presentation.paper != saved.paper) {
+      if (before.paper != saved.paper) {
+        throw NotebookConflict('Outra pessoa mudou o papel.', current: current);
+      }
+      changes['paper'] = presentation.paper.label;
+    }
+    if (!sameCoverLayout(presentation.cover, before.cover) &&
+        !sameCoverLayout(presentation.cover, saved.cover)) {
+      if (!sameCoverLayout(before.cover, saved.cover) ||
+          (original.coverHash != current.coverHash && newCover == null)) {
+        throw NotebookConflict(
+          'Outra pessoa mudou o enquadramento ou a imagem da capa.',
+          current: current,
+        );
+      }
+      changes['thumbLook'] = {
+        if (entry['thumbLook'] case final Map old) ...old,
+        ...presentation.cover.toJson(),
+      };
+    }
+  }
+  if (presentation != null &&
+      !sameNotebookPictures(
+        presentation.pictures,
+        original.presentation.pictures,
+      ) &&
+      !sameNotebookPictures(
+        presentation.pictures,
+        current.presentation.pictures,
+      )) {
+    if (!sameNotebookPictures(
+      original.presentation.pictures,
+      current.presentation.pictures,
+    )) {
+      throw NotebookConflict(
+        'Outra pessoa alterou as imagens do texto.',
+        current: current,
+      );
+    }
+    changes['pictures'] = presentation.pictures
+        .map((picture) => picture.toJson())
+        .toList();
   }
   if (dates != null &&
       !listEquals(dates, original.dates) &&
@@ -1043,13 +1208,14 @@ List<Object?> _moveUnchangedMarks(Object? value, String old, String updated) {
   ];
 }
 
-Map<String, Object> _newEntry(
+Map<String, Object?> _newEntry(
   String id,
   String category,
   NotebookText text,
   List<String> dates,
   MissionPlan? mission,
   String? newCover,
+  NotebookPresentation? presentation,
 ) => {
   'id': id,
   'category': category,
@@ -1071,4 +1237,5 @@ Map<String, Object> _newEntry(
   'thumbLook': <String, Object>{},
   'pageLook': <String, Object>{},
   'orders': <String, Object>{},
+  if (presentation != null) ...presentation.toJson(),
 };

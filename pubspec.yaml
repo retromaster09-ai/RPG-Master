@@ -1,7 +1,7 @@
 name: rpg_master_set
 description: Caderno colaborativo e roteiro privado de campanha.
 publish_to: none
-version: 0.17.0-dev.14+33
+version: 0.17.0-dev.15+34
 
 environment:
   sdk: ^3.14.0
@@ -36,3 +36,16 @@ flutter:
         - asset: assets/fonts/CrimsonText-Regular.ttf
         - asset: assets/fonts/CrimsonText-Bold.ttf
           weight: 700
+    - family: RpgScript
+      fonts:
+        - asset: assets/fonts/RpgScript-Regular.ttf
+        - asset: assets/fonts/RpgScript-Italic.ttf
+          style: italic
+        - asset: assets/fonts/RpgScript-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/RpgScript-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: RpgMono
+      fonts:
+        - asset: assets/fonts/RpgMono-Regular.ttf

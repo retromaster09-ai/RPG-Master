@@ -10,6 +10,9 @@ import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/main.dart';
 import 'package:rpg_master_set/missions.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
+import 'package:rpg_master_set/cover_frame.dart';
+import 'package:rpg_master_set/notebook_format.dart';
+import 'package:rpg_master_set/notebook_rich_text.dart';
 import 'package:rpg_master_set/offline_storage.dart';
 import 'package:rpg_master_set/organize_cards.dart';
 import 'package:rpg_master_set/session_dates.dart';
@@ -109,6 +112,88 @@ void main() {
       expect(didSave, isTrue);
     },
   );
+
+  testWidgets('seleciona a formatação e salva o papel do registro', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(440, 1024));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mistérios e pistas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar'));
+    await tester.pumpAndSettle();
+    final controller =
+        tester.widget<TextField>(find.byType(TextField).at(1)).controller!
+            as NotebookTextController;
+    controller.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Negrito').first);
+    await tester.pumpAndSettle();
+    expect(controller.marks.single.attributes, {'bold': true});
+    controller.text = 'Mapa inicial';
+    await tester.pumpAndSettle();
+    expect(controller.marks.single.end, 4);
+    await tester.tap(find.text('Leitura simples'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pergaminho').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(repository.presentation.paper, NotebookPaper.parchment);
+    expect(repository.presentation.bodyMarks.single.end, 4);
+    await tester.tap(find.text('Pista'));
+    await tester.pumpAndSettle();
+    final rich = tester.widget<SelectableText>(
+      find.byWidgetPredicate(
+        (widget) => widget is SelectableText && widget.textSpan != null,
+      ),
+    );
+    expect(rich.textSpan!.style!.fontFamily, 'RpgScript');
+    final styled = rich.textSpan!.children!.first as TextSpan;
+    expect(styled.text, 'Mapa');
+    expect(styled.style!.fontWeight, FontWeight.bold);
+  });
+
+  testWidgets('a prévia da capa alterna entre imagem inteira e recorte', (
+    tester,
+  ) async {
+    var selected = const CampaignCoverLayout(fill: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => NotebookCoverControls(
+              layout: selected,
+              onChanged: (layout) => setState(() => selected = layout),
+              onChangeEnd: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Mostrar a imagem inteira'), findsOneWidget);
+    expect(find.byType(Slider), findsNothing);
+    await tester.tap(find.text('Preencher o cartão'));
+    await tester.pumpAndSettle();
+    expect(selected.fill, isTrue);
+    expect(find.byType(Slider), findsNWidgets(3));
+    await tester.tap(find.text('Preencher o cartão'));
+    await tester.pumpAndSettle();
+    expect(selected.fill, isFalse);
+  });
 
   testWidgets('o jogador abre o editor e salva pelo botão da tela', (
     tester,
@@ -774,6 +859,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
   int saves = 0;
   bool trashed = false;
   MissionPlan? mission;
+  NotebookPresentation presentation = const NotebookPresentation();
   List<String>? reorderedIds;
   List<Map<String, Object>> sessions = const [];
 
@@ -789,6 +875,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
           'title': 'Pista',
           'body': body,
           'category': mission == null ? 'Investigação' : 'Missão',
+          ...presentation.toJson(),
           if (mission case final plan?) ...plan.toJson(),
           if (trashed) 'deletedAt': '2026-11-26T00:00:00.000Z',
         },
@@ -828,9 +915,11 @@ class _EditorRepository extends Fake implements CampaignRepository {
     List<String>? dates,
     MissionPlan? mission,
     Uint8List? coverPng,
+    NotebookPresentation? presentation,
   }) async {
     saves++;
     body = text.body;
     if (mission != null) this.mission = mission;
+    if (presentation != null) this.presentation = presentation;
   }
 }

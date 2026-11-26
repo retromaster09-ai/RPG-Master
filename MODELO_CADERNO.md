@@ -32,8 +32,19 @@ o mesmo armazenamento privado da campanha que a capa da mesa. Os dados
 usam o campo legado `imagePath`. A imagem selecionada fica no rascunho
 local até o envio, junto do texto. A área Mestre usa armazenamento separado.
 
-A formatação de trechos, o estilo Pergaminho e as imagens entre parágrafos
-continuam previstos para a próxima etapa do editor.
+A prévia usa a mesma proporção do cartão. **Mostrar a imagem inteira**
+é o padrão quando o registro ainda não tem um enquadramento salvo. Em
+**Preencher o cartão**, ajuste zoom e posição horizontal e vertical.
+A página de leitura mostra a capa inteira.
+
+Em **Estilo da página**, escolha Leitura simples, Pergaminho com letra
+manuscrita, Diário de Baróvia ou Futurista. Selecione um trecho no texto
+ou na resposta para aplicar negrito, itálico, títulos, cor ou destaque.
+A barra também insere marcadores na linha ou nas linhas selecionadas.
+Em **Imagens no texto**, escolha uma imagem, toque nela para editar sua
+legenda e posicione-a antes do texto ou depois de um parágrafo. Separe
+os parágrafos com uma linha em branco. Os estilos e imagens usam os
+campos legados do caderno e acompanham a fila de sincronização.
 
 ## Referência para implementar a importação Word e PDF
 

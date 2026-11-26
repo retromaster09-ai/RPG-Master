@@ -21,6 +21,8 @@ permite arrastar os cartões na própria lista. O `0.17.0-dev.13` abre o Caderno
 separa missões ativas das concluídas. A referência para importar Word
 e PDF está em [MODELO_CADERNO.md](MODELO_CADERNO.md). O `0.17.0-dev.14`
 adiciona capas compartilhadas, índice ilustrado e páginas de leitura.
+O `0.17.0-dev.15` recupera estilos de página, formatação de trechos,
+imagens no texto e enquadramento dos cartões no Caderno e nas Crônicas.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

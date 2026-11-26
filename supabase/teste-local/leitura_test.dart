@@ -6,6 +6,7 @@ import 'package:rpg_master_set/accounts.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/missions.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
+import 'package:rpg_master_set/notebook_format.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -216,6 +217,16 @@ void main() {
       text: uncovered.text,
       original: uncovered,
       coverPng: recordPng,
+      presentation: NotebookPresentation(
+        paper: NotebookPaper.parchment,
+        cover: CampaignCoverLayout(zoom: 1.4, y: -0.6),
+        bodyMarks: [
+          (start: 0, end: 2, attributes: {'bold': true}),
+        ],
+        pictures: [
+          NotebookPicture(png: recordPng, caption: 'Ilustração de teste'),
+        ],
+      ),
     );
     final restoredDraft = NotebookDraft.fromJson(
       jsonDecode(jsonEncode(playerDraft.toJson())) as Map<String, dynamic>,
@@ -228,10 +239,26 @@ void main() {
       text: restoredDraft.text,
       original: restoredDraft.original,
       coverPng: restoredDraft.coverPng,
+      presentation: restoredDraft.presentation,
     );
     final notebookWithCover = await gmRepo.readNotebook(campaignId);
     final covered = notebookWithCover.records.single;
     expect(covered.coverHash, isNotNull);
+    expect(covered.presentation.paper, NotebookPaper.parchment);
+    expect(
+      covered.presentation.cover.toJson(),
+      playerDraft.presentation!.cover.toJson(),
+    );
+    expect(
+      sameNotebookMarks(
+        covered.presentation.bodyMarks,
+        playerDraft.presentation!.bodyMarks,
+      ),
+      isTrue,
+    );
+    expect(covered.presentation.pictures.single.caption, 'Ilustração de teste');
+    expect(covered.presentation.pictures.single.afterParagraph, -1);
+    expect(covered.presentation.pictures.single.hash, covered.coverHash);
     expect(covered.coverHash, isNot(campaignCoverHash));
     expect(
       await gmRepo.readNotebookCover(campaignId, covered.coverHash!),
