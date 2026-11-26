@@ -154,11 +154,9 @@ class LoginLayout extends StatelessWidget {
                           alignment: portrait || desktop
                               ? Alignment.topCenter
                               : Alignment.topLeft,
-                          child: _LoginBrand(
-                            portrait: portrait,
-                            centered: portrait || desktop,
-                            short: short,
-                          ),
+                          child: desktop
+                              ? _DesktopLoginTitle(short: short)
+                              : _LoginBrand(portrait: portrait, short: short),
                         ),
                         const SizedBox(height: 16),
                         ConstrainedBox(
@@ -268,19 +266,14 @@ class _LoginPanel extends StatelessWidget {
 }
 
 class _LoginBrand extends StatelessWidget {
-  const _LoginBrand({
-    required this.portrait,
-    required this.centered,
-    required this.short,
-  });
+  const _LoginBrand({required this.portrait, required this.short});
 
   final bool portrait;
-  final bool centered;
   final bool short;
 
   @override
   Widget build(BuildContext context) {
-    final emblemSize = centered ? 46.0 : (short ? 51.0 : 76.0);
+    final emblemSize = portrait ? 46.0 : (short ? 51.0 : 76.0);
     final emblem = Image.asset(
       'assets/brand/emblem.png',
       key: const ValueKey('login-emblem'),
@@ -301,7 +294,7 @@ class _LoginBrand extends StatelessWidget {
             style: TextStyle(
               color: const Color(0xffffebbf),
               fontFamily: 'Crimson Text',
-              fontSize: portrait ? 38 : (short ? 40 : (centered ? 52 : 56)),
+              fontSize: portrait ? 38 : (short ? 40 : 56),
               fontWeight: FontWeight.w700,
               height: 1,
               shadows: const [
@@ -339,7 +332,7 @@ class _LoginBrand extends StatelessWidget {
         ],
       ),
     );
-    return centered
+    return portrait
         ? Column(children: [emblem, const SizedBox(height: 7), title])
         : Row(
             mainAxisSize: MainAxisSize.min,
@@ -349,5 +342,130 @@ class _LoginBrand extends StatelessWidget {
               Flexible(child: title),
             ],
           );
+  }
+}
+
+class _DesktopLoginTitle extends StatelessWidget {
+  const _DesktopLoginTitle({required this.short});
+
+  final bool short;
+
+  @override
+  Widget build(BuildContext context) {
+    final lettering = TextStyle(
+      fontFamily: 'Cinzel Decorative',
+      fontWeight: FontWeight.w900,
+      fontSize: short ? 42 : 58,
+      height: 1.10,
+      letterSpacing: 0.4,
+    );
+    const gold = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color(0xfffff1bc),
+        Color(0xffffd577),
+        Color(0xffc68137),
+        Color(0xffffcf82),
+      ],
+      stops: [0.15, 0.48, 0.72, 0.94],
+    );
+    return Semantics(
+      header: true,
+      label: 'RPG Master Set',
+      excludeSemantics: true,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                Text(
+                  'RPG MASTER',
+                  style: lettering.copyWith(
+                    foreground: Paint()
+                      ..style = PaintingStyle.stroke
+                      ..strokeWidth = 8
+                      ..strokeJoin = StrokeJoin.round
+                      ..color = const Color(0xff211529),
+                    shadows: const [
+                      Shadow(
+                        color: Color(0xee100914),
+                        offset: Offset(0, 4),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'RPG MASTER',
+                  style: lettering.copyWith(
+                    foreground: Paint()
+                      ..style = PaintingStyle.stroke
+                      ..strokeWidth = 3
+                      ..strokeJoin = StrokeJoin.round
+                      ..color = const Color(0xffad6b36),
+                  ),
+                ),
+                ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: gold.createShader,
+                  child: Text('RPG MASTER', style: lettering),
+                ),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _TitleRule(short: short),
+                const Padding(
+                  padding: EdgeInsets.only(left: 15, right: 10),
+                  child: Text(
+                    'SET',
+                    style: TextStyle(
+                      color: Color(0xffffe5a7),
+                      fontFamily: 'Cinzel Decorative',
+                      fontWeight: FontWeight.w900,
+                      fontSize: 21,
+                      letterSpacing: 5,
+                      height: 1.15,
+                      shadows: [
+                        Shadow(color: Color(0xff180f24), blurRadius: 8),
+                        Shadow(color: Color(0xff180f24), offset: Offset(0, 2)),
+                      ],
+                    ),
+                  ),
+                ),
+                _TitleRule(short: short, mirrored: true),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TitleRule extends StatelessWidget {
+  const _TitleRule({required this.short, this.mirrored = false});
+
+  final bool short;
+  final bool mirrored;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: short ? 68 : 91,
+      height: 2,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: mirrored ? Alignment.centerRight : Alignment.centerLeft,
+          end: mirrored ? Alignment.centerLeft : Alignment.centerRight,
+          colors: const [Colors.transparent, Color(0xfff6d289)],
+        ),
+        boxShadow: const [BoxShadow(color: Color(0x9418102d), blurRadius: 5)],
+      ),
+    );
   }
 }

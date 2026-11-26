@@ -63,6 +63,11 @@ e usa a adaptação panorâmica `assets/brand/login-party-wide.webp`.
 O enquadramento foi conferido em 1920 × 912, a proporção da janela
 mostrada pelo mestre. O APK recomendado continua na versão 0.17.0-dev.22.
 
+O 0.17.0-dev.25 troca a marca da tela de entrada do PC por um título
+tipográfico em dourado, com a fonte Cinzel Decorative Black. A fonte e
+sua licença SIL OFL estão em `assets/branding-fonts/`. O APK de celular
+recomendado continua na versão 0.17.0-dev.22.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

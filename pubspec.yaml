@@ -1,7 +1,7 @@
 name: rpg_master_set
 description: Caderno colaborativo e roteiro privado de campanha.
 publish_to: none
-version: 0.17.0-dev.24+43
+version: 0.17.0-dev.25+44
 
 environment:
   sdk: ^3.14.0
@@ -35,9 +35,14 @@ flutter:
     - assets/brand/login-party-portrait.webp
     - assets/brand/login-party-wide.webp
     - assets/brand/adventurers.png
+    - assets/branding-fonts/CinzelDecorative-OFL.txt
     - assets/notebook/
     - assets/fonts/
   fonts:
+    - family: Cinzel Decorative
+      fonts:
+        - asset: assets/branding-fonts/CinzelDecorative-Black.ttf
+          weight: 900
     - family: Crimson Text
       fonts:
         - asset: assets/fonts/CrimsonText-Regular.ttf
