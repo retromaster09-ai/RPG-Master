@@ -73,7 +73,7 @@ O [levantamento das funções do app anterior](PARIDADE.md) registra o que
 falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
 cadastro por usuário e senha, criação de mesa, entrada por código ou convite
 e consulta de participantes. A próxima etapa do uso diário do caderno
-inclui organização manual e duplicação.
+inclui etapas e progresso das missões.
 
 O `0.17.0-dev.6` guarda localmente a lista de campanhas, a última revisão
 do caderno compartilhado e os rascunhos de texto. A chave é separada por
@@ -112,6 +112,15 @@ preserva os campos da revisão mais recente e confere a geração da campanha.
 Na área privada, a migração `20261126090345_rpg_try_set_gm_trash` delega à
 função legada que restringe o acesso ao criador da campanha. Foi aplicada
 ao projeto de teste. Exclusão definitiva ainda está pendente.
+
+O `0.17.0-dev.10` recupera a duplicação e a ordem manual no Caderno,
+nas Crônicas e nos grupos da aba Mestre. Duplicar usa um novo ID e conserva
+o conteúdo e as referências de imagem da nota. O organizador compartilha
+a ordem salva com os participantes autorizados e confere o estado que
+a pessoa viu ao abrir a lista. As Crônicas seguem com opção de ordem por
+data. As operações exigem conexão. A migração
+`20261126091536_rpg_order_gm_group` protege a organização dos grupos privados
+e está aplicada ao projeto de teste.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas

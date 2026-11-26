@@ -9,6 +9,7 @@ import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/main.dart';
 import 'package:rpg_master_set/notebook_sync.dart';
 import 'package:rpg_master_set/offline_storage.dart';
+import 'package:rpg_master_set/organize_cards.dart';
 import 'package:rpg_master_set/session_dates.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -432,6 +433,37 @@ void main() {
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.text('Pista'), findsOneWidget);
+  });
+
+  testWidgets('o organizador envia a ordem ajustada pelos cartões', (
+    tester,
+  ) async {
+    List<String>? saved;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OrganizeCardsScreen(
+          cards: const [
+            (id: 'a', title: 'Primeiro'),
+            (id: 'b', title: 'Segundo'),
+          ],
+          onBack: () {},
+          onSaved: () {},
+          save: (ids) async {
+            saved = ids;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Arrastar'), findsNWidgets(2));
+    final list = tester.widget<ReorderableListView>(
+      find.byType(ReorderableListView),
+    );
+    list.onReorderItem!(1, 0);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salvar ordem'));
+    await tester.pumpAndSettle();
+    expect(saved, ['b', 'a']);
   });
 
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {

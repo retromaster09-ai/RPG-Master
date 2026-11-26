@@ -253,6 +253,50 @@ void main() {
     expect(untrashed.trash, isEmpty);
     expect(untrashed.sessions.single.dates, sessionDates);
 
+    final sharedCopyId = newNotebookRecordId();
+    await playerRepo.duplicateRecord(
+      campaignId,
+      untrashed,
+      untrashed.sessions.single,
+      sharedCopyId,
+    );
+    await playerRepo.duplicateRecord(
+      campaignId,
+      untrashed,
+      untrashed.sessions.single,
+      sharedCopyId,
+    );
+    final sharedCopies = await gmRepo.readNotebook(campaignId);
+    final savedCopy = sharedCopies.sessions.singleWhere(
+      (record) => record.id == sharedCopyId,
+    );
+    expect(sharedCopies.sessions.length, 2);
+    expect(savedCopy.title, 'A primeira sessão (cópia)');
+    expect(savedCopy.dates, sessionDates);
+    await playerRepo.reorderRecords(campaignId, sharedCopies, [
+      sharedCopyId,
+      datedSession.id!,
+    ], sessions: true);
+    final ordered = await gmRepo.readNotebook(campaignId);
+    expect(
+      ordered.sessions
+          .singleWhere((record) => record.id == sharedCopyId)
+          .orderIndex(chronicleOrder),
+      0,
+    );
+    expect(
+      ordered.sessions
+          .singleWhere((record) => record.id == datedSession.id)
+          .orderIndex(chronicleOrder),
+      1,
+    );
+    await expectLater(
+      playerRepo.reorderRecords(campaignId, sharedCopies, [
+        datedSession.id!,
+        sharedCopyId,
+      ], sessions: true),
+      throwsA(isA<NotebookConflict>()),
+    );
     final legacy = (await gmRepo.readGmNotes(campaign)).single;
     expect(legacy.text.title, 'Uma nota privada de teste');
     expect(legacy.text.kind, GmNoteKind.note);
@@ -276,6 +320,44 @@ void main() {
       draft,
     );
     expect(await gmRepo.readGmCover(campaign, coverHash), orderedEquals(png));
+
+    final privateCopyId = newNotebookRecordId();
+    final privateSource = (await gmRepo.readGmNotes(campaign))
+        .singleWhere((note) => note.id == id);
+    await gmRepo.duplicateGmNote(campaign, privateSource, privateCopyId);
+    final group = (await gmRepo.readGmNotes(campaign))
+        .where((note) => note.orderGroup == 'character')
+        .toList();
+    expect(group.length, 2);
+    final privateCopy = group.singleWhere((note) => note.id == privateCopyId);
+    expect(privateCopy.text.title, 'Segredo (cópia)');
+    expect(privateCopy.text.coverHash, privateSource.text.coverHash);
+    await gmRepo.reorderGmNotes(campaign, group, [privateCopyId, id]);
+    final privateOrder = (await gmRepo.readGmNotes(campaign))
+        .singleWhere((note) => note.id == privateCopyId);
+    expect(privateOrder.orderIndex, 0);
+    await expectLater(
+      gmRepo.reorderGmNotes(campaign, group, [id, privateCopyId]),
+      throwsA(isA<GmNoteConflict>()),
+    );
+    await expectLater(
+      player.rpc<bool>(
+        'rpg_order_gm_group',
+        params: {
+          ...memberArgs,
+          'p_group': 'character',
+          'p_ids': [],
+          'p_previous': {},
+        },
+      ),
+      throwsA(
+        isA<PostgrestException>().having(
+          (error) => error.code,
+          'code',
+          '42501',
+        ),
+      ),
+    );
 
     const revised = (
       title: 'Uma nota revisada',
@@ -388,7 +470,9 @@ void main() {
     final gmSnapshot = await gmRepo.readNotebook(campaignId);
     final playerSnapshot = await playerRepo.readNotebook(campaignId);
     final clue = gmSnapshot.records.single;
-    final session = playerSnapshot.sessions.single;
+    final session = playerSnapshot.sessions.singleWhere(
+      (note) => note.id == datedSession.id,
+    );
     await Future.wait([
       _saveTitle(gmRepo, campaignId, gmSnapshot, clue, 'Pista revisada'),
       _saveTitle(
@@ -401,7 +485,10 @@ void main() {
     ]);
     final combined = await gmRepo.readNotebook(campaignId);
     expect(combined.records.single.title, 'Pista revisada');
-    expect(combined.sessions.single.title, 'Crônica revisada');
+    expect(
+      combined.sessions.singleWhere((note) => note.id == datedSession.id).title,
+      'Crônica revisada',
+    );
 
     final sameRecord = combined.records.single;
     final results = await Future.wait([
@@ -427,7 +514,12 @@ void main() {
       anyOf('Rascunho do mestre', 'Rascunho do jogador'),
     );
     expect(conflict.current?.title, afterConflict.records.single.title);
-    expect(afterConflict.sessions.single.title, 'Crônica revisada');
+    expect(
+      afterConflict.sessions
+          .singleWhere((note) => note.id == datedSession.id)
+          .title,
+      'Crônica revisada',
+    );
 
     final newId = newNotebookRecordId();
     Future<void> create() => playerRepo.saveNotebookRecord(

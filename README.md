@@ -90,6 +90,12 @@ a lixeira**. O ícone **Lixeira** no topo abre a lista e permite restaurar.
 Na aba **Mestre**, a página privada tem seu próprio botão para mover, e o
 topo da aba abre a lixeira privada. Mover e restaurar precisam de conexão.
 
+Use **Duplicar** no menu de um registro, crônica ou nota privada para
+criar uma cópia. Use **Organizar cartões** para arrastar os itens e
+salvar a ordem. No Caderno e nas Crônicas, a ordem vale para a aba inteira.
+Na área Mestre, cada grupo é organizado separadamente. As Crônicas também
+podem voltar à ordem por data pelo botão de ordenação.
+
 Na aba **Mestre**, o criador da campanha pode criar e editar notas
 privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
 de cada nota para impedir que duas edições se sobrescrevam. O título,

@@ -2,7 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'session_dates.dart';
@@ -95,6 +95,7 @@ class CampaignRecord {
     this.confidence,
     this.dates = const [],
     this.deletedAt,
+    this.orders = const {},
   });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
@@ -111,6 +112,7 @@ class CampaignRecord {
       category: category is String && category.isNotEmpty ? category : null,
       dates: readSessionDates(json['dates']),
       deletedAt: json['deletedAt'] as String?,
+      orders: Map.unmodifiable(_orders(json['orders'])),
       confidence:
           confidence is String &&
               confidence.isNotEmpty &&
@@ -128,6 +130,9 @@ class CampaignRecord {
   final String? confidence;
   final List<String> dates;
   final String? deletedAt;
+  final Map<String, dynamic> orders;
+
+  int? orderIndex(String key) => _order(orders, key)?['index'] as int?;
 
   NotebookText get text => (
     title: title,
@@ -145,6 +150,7 @@ class CampaignRecord {
     'confidence': confidence,
     'dates': dates,
     'deletedAt': deletedAt,
+    'orders': orders,
   };
 }
 
@@ -282,6 +288,11 @@ class GmNote {
   String get id => _row['id'] as String;
   int get revision => _row['revision'] as int;
   bool get isTrashed => _row['deleted_at'] != null;
+
+  String get orderGroup =>
+      text.kind == GmNoteKind.note ? text.section.name : text.kind.name;
+
+  int? get orderIndex => _order(_row['orders'], orderGroup)?['index'] as int?;
 
   Map<String, dynamic> get _presentation =>
       _row['presentation'] as Map<String, dynamic>? ?? const {};
@@ -527,43 +538,109 @@ class CampaignRepository {
     );
   }
 
-  Future<void> setNotebookTrash(
+  Future<void> duplicateRecord(
     String campaignId,
     Notebook notebook,
-    CampaignRecord record, {
-    required bool trashed,
-  }) async {
+    CampaignRecord source,
+    String copyId,
+  ) => _updateNotebook(campaignId, notebook, (latest) {
+    final entries = [...latest._entries];
+    if (entries.any((entry) => entry['id'] == copyId)) return null;
+    final original = entries
+        .where(
+          (entry) => entry['id'] == source.id && entry['deletedAt'] == null,
+        )
+        .firstOrNull;
+    if (original == null) {
+      throw const NotebookConflict('O registro original saiu da lista.');
+    }
+    entries.add(
+      {
+        ...original,
+        'id': copyId,
+        'title': _copyTitle(original['title'] as String),
+        'orders': <String, Object>{},
+      }..remove('deletedAt'),
+    );
+    return entries;
+  });
+
+  Future<void> reorderRecords(
+    String campaignId,
+    Notebook notebook,
+    List<String> ids, {
+    required bool sessions,
+  }) {
+    final key = sessions ? chronicleOrder : notebookOrder;
+    final baseline = sessions ? notebook.sessions : notebook.records;
+    final expected = <String, CampaignRecord>{
+      for (final item in baseline)
+        if (item.id != null) item.id!: item,
+    };
+    final positions = {for (final (index, id) in ids.indexed) id: index};
+    if (ids.length != expected.length ||
+        positions.length != expected.length ||
+        !positions.keys.every(expected.containsKey)) {
+      throw ArgumentError('A ordem deve incluir cada registro uma vez.');
+    }
+    final clock = DateTime.now().millisecondsSinceEpoch;
+    final operation = newNotebookRecordId();
+    return _updateNotebook(campaignId, notebook, (latest) {
+      final current = (sessions ? latest.sessions : latest.records).where(
+        (item) => item.id != null,
+      );
+      if (current.length != expected.length ||
+          current.any(
+            (item) =>
+                !expected.containsKey(item.id) ||
+                !mapEquals(
+                  _order(item.orders, key),
+                  _order(expected[item.id]!.orders, key),
+                ),
+          )) {
+        throw const NotebookConflict(
+          'A lista mudou. Abra Organizar novamente para conferir a ordem atual.',
+        );
+      }
+      return [
+        for (final entry in latest._entries)
+          if (entry['deletedAt'] == null && positions.containsKey(entry['id']))
+            {
+              ...entry,
+              'orders': {
+                ..._orders(entry['orders']),
+                key: {
+                  'index': positions[entry['id']]!,
+                  'clock': clock,
+                  'op': operation,
+                },
+              },
+            }
+          else
+            entry,
+      ];
+    });
+  }
+
+  Future<void> _updateNotebook(
+    String campaignId,
+    Notebook baseline,
+    List<Map<String, dynamic>>? Function(Notebook latest) change,
+  ) async {
     final account = _client.auth.currentUser?.id;
-    final deletionTime = trashed
-        ? DateTime.now().toUtc().toIso8601String()
-        : null;
-    var latest = notebook;
+    var latest = baseline;
     for (var attempt = 0; attempt < 3; attempt++) {
-      // Read the latest copy so the operation never replaces another person's text.
       latest = await readNotebook(campaignId, known: latest);
-      if (latest.epoch != notebook.epoch) {
+      if (_client.auth.currentUser?.id != account) {
+        throw const AuthException('A conta mudou durante o envio.');
+      }
+      if (latest.epoch != baseline.epoch) {
         throw const NotebookConflict(
           'A campanha mudou. Atualize antes de tentar novamente.',
         );
       }
-      if (_client.auth.currentUser?.id != account) {
-        throw const AuthException('A conta mudou durante o envio.');
-      }
-      final entries = [...latest._entries];
-      final index = entries.indexWhere((entry) => entry['id'] == record.id);
-      if (record.id == null || index == -1) {
-        throw const NotebookConflict(
-          'Este registro não está mais na campanha.',
-        );
-      }
-      final previous = entries[index]['deletedAt'];
-      if ((previous != null) == trashed) return;
-      if (previous != record.deletedAt) {
-        throw const NotebookConflict(
-          'Este registro mudou. Atualize antes de tentar novamente.',
-        );
-      }
-      entries[index] = {...entries[index], 'deletedAt': deletionTime};
+      final entries = change(latest);
+      if (entries == null) return;
       final revision = await _client.rpc<int?>(
         'rpg_try_save_notebook_v3',
         params: {
@@ -578,6 +655,35 @@ class CampaignRepository {
     throw const NotebookConflict(
       'O caderno continua mudando. Tente novamente.',
     );
+  }
+
+  Future<void> setNotebookTrash(
+    String campaignId,
+    Notebook notebook,
+    CampaignRecord record, {
+    required bool trashed,
+  }) {
+    final deletionTime = trashed
+        ? DateTime.now().toUtc().toIso8601String()
+        : null;
+    return _updateNotebook(campaignId, notebook, (latest) {
+      final entries = [...latest._entries];
+      final index = entries.indexWhere((entry) => entry['id'] == record.id);
+      if (record.id == null || index == -1) {
+        throw const NotebookConflict(
+          'Este registro não está mais na campanha.',
+        );
+      }
+      final previous = entries[index]['deletedAt'];
+      if ((previous != null) == trashed) return null;
+      if (previous != record.deletedAt) {
+        throw const NotebookConflict(
+          'Este registro mudou. Atualize antes de tentar novamente.',
+        );
+      }
+      entries[index] = {...entries[index], 'deletedAt': deletionTime};
+      return entries;
+    });
   }
 
   Future<List<GmNote>> readGmNotes(
@@ -595,6 +701,63 @@ class CampaignRepository {
         .map(GmNote._)
         .where((note) => note.isTrashed == trashed)
         .toList(growable: false);
+  }
+
+  Future<void> reorderGmNotes(
+    Campaign campaign,
+    List<GmNote> group,
+    List<String> ids,
+  ) async {
+    _requireCampaignOwner(campaign);
+    final key = group.first.orderGroup;
+    final saved = await _client.rpc<bool>(
+      'rpg_order_gm_group',
+      params: {
+        'p_campaign': campaign.id,
+        'p_group': key,
+        'p_ids': ids,
+        'p_previous': {
+          for (final note in group) note.id: _order(note._row['orders'], key),
+        },
+      },
+    );
+    if (!saved) throw const GmNoteConflict();
+  }
+
+  Future<void> duplicateGmNote(
+    Campaign campaign,
+    GmNote source,
+    String copyId,
+  ) async {
+    _requireCampaignOwner(campaign);
+    final notes = await readGmNotes(campaign);
+    if (notes.any((note) => note.id == copyId)) return;
+    final original = notes.where((note) => note.id == source.id).firstOrNull;
+    if (original == null) throw const GmNoteConflict();
+    final text = original.text;
+    final payload = original._payload((
+      title: _copyTitle(text.title, maxLength: 200),
+      body: text.body,
+      coverHash: text.coverHash,
+      kind: text.kind,
+      section: text.section,
+    ));
+    if (original._presentation.isNotEmpty) {
+      payload['presentation'] = original._presentation;
+    }
+    final result = await _client.rpc<int?>(
+      'rpg_try_save_gm_note',
+      params: {
+        'p_campaign': campaign.id,
+        'p_id': copyId,
+        'p_expected': 0,
+        'p_note': payload,
+      },
+    );
+    if (result == null &&
+        !(await readGmNotes(campaign)).any((note) => note.id == copyId)) {
+      throw const GmNoteConflict();
+    }
   }
 
   Future<void> setGmTrash(
@@ -699,6 +862,26 @@ class CampaignRepository {
       throw StateError('O roteiro está reservado ao criador da campanha.');
     }
   }
+}
+
+const notebookOrder = 'all';
+const chronicleOrder = 'session';
+
+Map<String, dynamic> _orders(Object? value) =>
+    value is Map<String, dynamic> ? value : const {};
+
+Map<String, dynamic>? _order(Object? orders, String key) {
+  final value = _orders(orders)[key];
+  return value is Map<String, dynamic> ? value : null;
+}
+
+String _copyTitle(String title, {int? maxLength}) {
+  const suffix = ' (cópia)';
+  final trimmed = title.trim();
+  final base = trimmed.isEmpty ? 'Registro' : trimmed;
+  if (maxLength == null) return '$base$suffix';
+  return String.fromCharCodes(base.runes.take(maxLength - suffix.length)) +
+      suffix;
 }
 
 Map<String, Object> _mergeEntry(

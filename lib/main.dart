@@ -15,6 +15,7 @@ import 'gm_note_page.dart';
 import 'notebook_editor.dart';
 import 'notebook_sync.dart';
 import 'offline_storage.dart';
+import 'organize_cards.dart';
 import 'session_dates.dart';
 import 'trash_screen.dart';
 
@@ -569,6 +570,10 @@ class _CampaignScreenState extends State<CampaignScreen> {
 
 enum _NotebookTab { records, sessions, private }
 
+enum _ChronicleOrder { recent, oldest, manual }
+
+enum _RecordAction { duplicate, trash }
+
 class NotebookScreen extends StatefulWidget {
   const NotebookScreen({
     super.key,
@@ -597,7 +602,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   Timer? _poll;
   final _search = TextEditingController();
   String? _category;
-  bool _recentFirst = true;
+  _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
 
   @override
@@ -765,6 +770,75 @@ class _NotebookScreenState extends State<NotebookScreen>
     }
   }
 
+  Future<void> _duplicate(
+    Future<void> Function(String id) submit,
+    VoidCallback onSaved,
+  ) async {
+    if (_trashBusy) return;
+    setState(() => _trashBusy = true);
+    try {
+      await submit(newNotebookRecordId()).timeout(notebookRequestTimeout);
+      if (!mounted) return;
+      onSaved();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Cópia criada.')));
+    } on Exception catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(organizeMessage(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _trashBusy = false);
+    }
+  }
+
+  void _organizeNotebook(
+    Notebook notebook,
+    List<CampaignRecord> records, {
+    required bool sessions,
+  }) {
+    final cards = [
+      for (final record in records)
+        if (record.id case final id?) (id: id, title: record.title),
+    ];
+    setState(() {
+      _editor = OrganizeCardsScreen(
+        cards: cards,
+        save: (ids) async {
+          await widget.repository
+              .reorderRecords(
+                widget.campaign.id,
+                notebook,
+                ids,
+                sessions: sessions,
+              )
+              .timeout(notebookRequestTimeout);
+          await _sync.refreshAfterChange();
+        },
+        onBack: () => setState(() => _editor = null),
+        onSaved: () => setState(() {
+          if (sessions) _chroniclePreference = _ChronicleOrder.manual;
+          _editor = null;
+        }),
+      );
+    });
+  }
+
+  void _organizeGm(List<GmNote> notes) {
+    setState(() {
+      _editor = OrganizeCardsScreen(
+        cards: [
+          for (final note in notes) (id: note.id, title: note.text.title),
+        ],
+        save: (ids) => widget.repository
+            .reorderGmNotes(widget.campaign, notes, ids)
+            .timeout(notebookRequestTimeout),
+        onBack: _closeGmEditor,
+        onSaved: _closeGmEditor,
+      );
+    });
+  }
+
   void _openGmNote(GmNote note) {
     setState(() {
       _editor = GmNotePage(
@@ -846,12 +920,34 @@ class _NotebookScreenState extends State<NotebookScreen>
           if (section.value.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
-              child: Text(
-                section.key,
-                style: Theme.of(context).textTheme.titleMedium,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      section.key,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  if (section.value.length > 1)
+                    IconButton(
+                      tooltip: 'Organizar ${section.key}',
+                      icon: const Icon(Icons.swap_vert),
+                      onPressed: _trashBusy
+                          ? null
+                          : () => _organizeGm(
+                              orderCards(
+                                section.value,
+                                (note) => note.orderIndex,
+                              ),
+                            ),
+                    ),
+                ],
               ),
             ),
-            for (final note in section.value)
+            for (final note in orderCards(
+              section.value,
+              (note) => note.orderIndex,
+            ))
               Card(
                 child: ListTile(
                   title: Text(note.text.title),
@@ -862,7 +958,24 @@ class _NotebookScreenState extends State<NotebookScreen>
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: PopupMenuButton<_RecordAction>(
+                    enabled: !_trashBusy,
+                    tooltip: 'Opções da nota',
+                    onSelected: (_) => _duplicate(
+                      (id) => widget.repository.duplicateGmNote(
+                        widget.campaign,
+                        note,
+                        id,
+                      ),
+                      _closeGmEditor,
+                    ),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: _RecordAction.duplicate,
+                        child: Text('Duplicar'),
+                      ),
+                    ],
+                  ),
                   onTap: () => _openGmNote(note),
                 ),
               ),
@@ -871,7 +984,13 @@ class _NotebookScreenState extends State<NotebookScreen>
     );
   }
 
-  List<CampaignRecord> _orderSessions(List<CampaignRecord> records) {
+  List<CampaignRecord> _sortSessions(
+    List<CampaignRecord> records,
+    _ChronicleOrder preference,
+  ) {
+    if (preference == _ChronicleOrder.manual) {
+      return orderCards(records, (record) => record.orderIndex(chronicleOrder));
+    }
     final rows = [
       for (final (index, record) in records.indexed)
         (index: index, date: firstSessionDay(record.dates), record: record),
@@ -882,7 +1001,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       if (first == null && second == null) return a.index.compareTo(b.index);
       if (first == null) return 1;
       if (second == null) return -1;
-      final order = _recentFirst
+      final order = preference == _ChronicleOrder.recent
           ? second.compareTo(first)
           : first.compareTo(second);
       return order == 0 ? a.index.compareTo(b.index) : order;
@@ -952,9 +1071,15 @@ class _NotebookScreenState extends State<NotebookScreen>
               matches(record.text, record.category, record.dates),
         )
         .toList(growable: false);
-    final entries = isSession
-        ? _orderSessions(matchingEntries)
-        : matchingEntries;
+    final preference =
+        _chroniclePreference ??
+        (allEntries.any((entry) => entry.orderIndex(chronicleOrder) != null)
+            ? _ChronicleOrder.manual
+            : _ChronicleOrder.recent);
+    List<CampaignRecord> sortCards(List<CampaignRecord> source) => isSession
+        ? _sortSessions(source, preference)
+        : orderCards(source, (record) => record.orderIndex(notebookOrder));
+    final entries = sortCards(matchingEntries);
     final header = <Widget>[
       if (_sync.localError)
         const ListTile(
@@ -974,20 +1099,38 @@ class _NotebookScreenState extends State<NotebookScreen>
             icon: const Icon(Icons.add),
             label: Text(isSession ? 'Nova crônica' : 'Novo registro'),
           ),
+          const Spacer(),
+          if (allEntries.where((record) => record.id != null).length > 1)
+            IconButton(
+              tooltip: 'Organizar cartões',
+              icon: const Icon(Icons.swap_vert),
+              onPressed: _trashBusy
+                  ? null
+                  : () => _organizeNotebook(
+                      notebook,
+                      sortCards(allEntries),
+                      sessions: isSession,
+                    ),
+            ),
           if (isSession)
-            PopupMenuButton<bool>(
+            PopupMenuButton<_ChronicleOrder>(
               icon: const Icon(Icons.sort),
               tooltip: 'Ordenar por data',
-              initialValue: _recentFirst,
-              onSelected: (recent) => setState(() => _recentFirst = recent),
+              initialValue: preference,
+              onSelected: (value) =>
+                  setState(() => _chroniclePreference = value),
               itemBuilder: (_) => const [
                 PopupMenuItem(
-                  value: true,
+                  value: _ChronicleOrder.recent,
                   child: Text('Mais recentes primeiro'),
                 ),
                 PopupMenuItem(
-                  value: false,
+                  value: _ChronicleOrder.oldest,
                   child: Text('Mais antigas primeiro'),
+                ),
+                PopupMenuItem(
+                  value: _ChronicleOrder.manual,
+                  child: Text('Ordem manual'),
                 ),
               ],
             ),
@@ -1085,20 +1228,39 @@ class _NotebookScreenState extends State<NotebookScreen>
                         tooltip: 'Editar',
                       ),
                     if (record.id != null)
-                      PopupMenuButton<bool>(
+                      PopupMenuButton<_RecordAction>(
                         enabled: !_trashBusy,
                         tooltip: 'Opções do registro',
-                        onSelected: (_) => _moveToTrash(record.title, () async {
-                          await _setRecordTrash(
-                            notebook,
-                            record,
-                            trashed: true,
-                          );
-                          await _sync.refreshAfterChange();
-                        }, () {}),
+                        onSelected: (action) {
+                          switch (action) {
+                            case _RecordAction.duplicate:
+                              _duplicate((id) async {
+                                await widget.repository.duplicateRecord(
+                                  widget.campaign.id,
+                                  notebook,
+                                  record,
+                                  id,
+                                );
+                                await _sync.refreshAfterChange();
+                              }, () {});
+                            case _RecordAction.trash:
+                              _moveToTrash(record.title, () async {
+                                await _setRecordTrash(
+                                  notebook,
+                                  record,
+                                  trashed: true,
+                                );
+                                await _sync.refreshAfterChange();
+                              }, () {});
+                          }
+                        },
                         itemBuilder: (_) => const [
                           PopupMenuItem(
-                            value: true,
+                            value: _RecordAction.duplicate,
+                            child: Text('Duplicar'),
+                          ),
+                          PopupMenuItem(
+                            value: _RecordAction.trash,
                             child: Text('Mover para a lixeira'),
                           ),
                         ],
