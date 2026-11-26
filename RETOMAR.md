@@ -40,6 +40,11 @@ Android, PDF e PNG oferecem salvar ou compartilhar pelo menu do sistema.
 O provedor de arquivos concede leitura apenas do arquivo escolhido no
 cache de exportações.
 
+O 0.17.0-dev.21 aumenta a resolução de imagens importadas e exportadas nas
+Crônicas. O login tem uma ilustração anime 2D original em
+`assets/brand/login-party.webp`. O formulário aparece abaixo da arte no
+celular e ao lado dela em telas largas. A distribuição nativa para PC continua como etapa futura.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

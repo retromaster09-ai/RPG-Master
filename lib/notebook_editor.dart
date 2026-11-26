@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show Uint8List, listEquals;
+import 'package:flutter/foundation.dart' show Uint8List, kIsWeb, listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
@@ -122,8 +122,10 @@ class _NotebookEditorState extends State<NotebookEditor> {
     if (_saving || _choosingCover) return;
     setState(() => _choosingCover = true);
     try {
+      final detailed = widget.isSession && !kIsWeb;
       final image = await pickCoverImage(
-        maxPngBytes: inline ? 512 * 1024 : 1024 * 1024,
+        maxSide: detailed ? 2200 : 1400,
+        maxPngBytes: detailed ? 3 * 1024 * 1024 : (inline ? 512 : 1024) * 1024,
       );
       if (!mounted || image == null) return;
       setState(() {

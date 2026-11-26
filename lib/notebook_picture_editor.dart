@@ -40,6 +40,7 @@ class NotebookPictureFrame extends StatelessWidget {
               child: Image.memory(
                 bytes,
                 fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
                 alignment: Alignment(layout.x, layout.y),
                 errorBuilder: (_, _, _) =>
                     const Center(child: Icon(Icons.broken_image_outlined)),

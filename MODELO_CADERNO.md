@@ -41,6 +41,11 @@ completa. No Android, escolha **Compartilhar** para abrir o menu do sistema
 com os apps disponíveis, ou **Salvar no dispositivo** para escolher
 onde guardar o arquivo. Se houver imagens, conecte-se para que elas sejam carregadas.
 
+O PNG tem até 1740 px de largura. Crônicas longas reduzem a escala para
+caber em uma imagem. No Android, capas e ilustrações recém-selecionadas
+podem manter até 2200 px no lado maior, conforme o tamanho do arquivo.
+Reinsira a imagem original se uma ilustração anterior já estiver desfocada.
+
 ## Capas e páginas de leitura
 
 O índice tem uma ilustração por seção. Toque no título de um registro

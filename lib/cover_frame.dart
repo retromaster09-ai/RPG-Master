@@ -26,6 +26,7 @@ class CoverFrame extends StatelessWidget {
           child: SizedBox.expand(
             child: Image.memory(
               bytes,
+              filterQuality: FilterQuality.high,
               fit: layout.fill ? BoxFit.cover : BoxFit.contain,
               alignment: alignment,
               errorBuilder: (_, _, _) =>

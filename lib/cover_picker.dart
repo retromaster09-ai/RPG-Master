@@ -4,7 +4,10 @@ import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
 
-Future<Uint8List?> pickCoverImage({int? maxPngBytes}) async {
+Future<Uint8List?> pickCoverImage({
+  int? maxPngBytes,
+  int maxSide = 1400,
+}) async {
   final file = await openFile(
     acceptedTypeGroups: const [
       XTypeGroup(
@@ -21,12 +24,28 @@ Future<Uint8List?> pickCoverImage({int? maxPngBytes}) async {
       'Imagem grande demais. Escolha um arquivo de até 25 MB.',
     );
   }
-  final input = await file.readAsBytes();
-  for (final size in [1400, 1000, 700, 480, 360]) {
+  return prepareCoverImage(
+    await file.readAsBytes(),
+    maxPngBytes: maxPngBytes,
+    maxSide: maxSide,
+  );
+}
+
+Future<Uint8List> prepareCoverImage(
+  Uint8List input, {
+  int? maxPngBytes,
+  int maxSide = 1400,
+}) async {
+  final sizes = [
+    maxSide,
+    for (final size in [1800, 1500, 1250, 1000, 850, 700, 480, 360])
+      if (size < maxSide) size,
+  ];
+  for (final size in sizes) {
     final png = await _coverPng(input, size);
     if (maxPngBytes == null || png.lengthInBytes <= maxPngBytes) return png;
   }
-  throw const FormatException('Não foi possível reduzir o tamanho da capa.');
+  throw const FormatException('Não foi possível reduzir o tamanho da imagem.');
 }
 
 Future<Uint8List> _coverPng(Uint8List input, int maxSize) async {

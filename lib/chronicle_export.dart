@@ -381,7 +381,11 @@ Future<Uint8List> exportChroniclePng(
     final drawing = recorder.endRecording();
     try {
       final height = y + padding;
-      final scale = math.min(1.6, 12000 / height);
+      // Keep long exports within the image dimensions and a bounded pixel budget.
+      final scale = math.min(
+        3.0,
+        math.min(12000 / height, math.sqrt(18000000 / (width * height))),
+      );
       if (scale < 0.5) {
         throw const FormatException(
           'A crônica é longa demais para uma única imagem legível. Use o PDF das crônicas.',
@@ -453,7 +457,7 @@ void _paintImage(
     image,
     Offset.zero & size,
     alignment.inscribe(fit.destination, bounds),
-    ui.Paint()..filterQuality = ui.FilterQuality.medium,
+    ui.Paint()..filterQuality = ui.FilterQuality.high,
   );
   canvas.restore();
 }

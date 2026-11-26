@@ -25,10 +25,11 @@ Future<Uint8List> removePictureBackground(
     buffer,
     getTargetSize: (width, height) {
       final largest = max(width, height);
-      if (largest <= 1400) return const ui.TargetImageSize();
+      const maxSide = 2200;
+      if (largest <= maxSide) return const ui.TargetImageSize();
       return ui.TargetImageSize(
-        width: max(1, (width * 1400 / largest).round()),
-        height: max(1, (height * 1400 / largest).round()),
+        width: max(1, (width * maxSide / largest).round()),
+        height: max(1, (height * maxSide / largest).round()),
       );
     },
   );

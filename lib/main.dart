@@ -18,6 +18,7 @@ import 'gm_note_editor.dart';
 import 'gm_note_page.dart';
 import 'hypotheses.dart';
 import 'hypothesis_fields.dart';
+import 'login_layout.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
 import 'notebook_editor.dart';
@@ -204,145 +205,125 @@ class _SignInScreenState extends State<SignInScreen> {
         onClose: () => setState(() => _recovering = false),
       );
     }
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
-              child: Form(
-                key: _formKey,
-                child: AutofillGroup(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Image.asset('assets/brand/emblem.png', height: 100),
-                      Text(
-                        'RPG Master Set',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 24),
-                      if (_legacy)
-                        const Text(
-                          'Entre com a conta antiga e escolha seu nome de usuário em Minha conta.',
-                        ),
-                      TextFormField(
-                        controller: _identifier,
-                        enabled: !_busy,
-                        autocorrect: false,
-                        decoration: InputDecoration(
-                          labelText: _legacy
-                              ? 'E-mail da conta antiga'
-                              : 'Nome de usuário',
-                        ),
-                        keyboardType: _legacy
-                            ? TextInputType.emailAddress
-                            : TextInputType.text,
-                        autofillHints: [
-                          _legacy
-                              ? AutofillHints.email
-                              : AutofillHints.username,
-                        ],
-                        validator: (text) {
-                          if (_legacy) {
-                            return text?.contains('@') == true
-                                ? null
-                                : 'Informe o e-mail da conta antiga.';
-                          }
-                          return isUsername(text)
-                              ? null
-                              : 'Informe o nome de usuário.';
-                        },
-                      ),
-                      TextFormField(
-                        controller: _password,
-                        enabled: !_busy,
-                        decoration: const InputDecoration(labelText: 'Senha'),
-                        obscureText: true,
-                        autofillHints: const [AutofillHints.password],
-                        onFieldSubmitted: _registering
-                            ? null
-                            : (_) => _signIn(),
-                        validator: (text) {
-                          if (text == null || text.isEmpty) {
-                            return 'Informe sua senha.';
-                          }
-                          if (_registering && text.length < 8) {
-                            return 'Use pelo menos 8 caracteres.';
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_registering) ...[
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _passwordAgain,
-                          enabled: !_busy,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Confirmar senha',
-                          ),
-                          onFieldSubmitted: (_) => _signIn(),
-                          validator: (text) => text == _password.text
-                              ? null
-                              : 'As senhas precisam ser iguais.',
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      if (_error case final error?) Text(error),
-                      FilledButton(
-                        onPressed: _busy ? null : _signIn,
-                        child: Text(
-                          _busy
-                              ? 'Aguarde…'
-                              : _registering
-                              ? 'Criar conta'
-                              : 'Entrar',
-                        ),
-                      ),
-                      if (_registering || !_legacy)
-                        TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () => setState(() {
-                                  _registering = !_registering;
-                                  _passwordAgain.clear();
-                                  _error = null;
-                                }),
-                          child: Text(
-                            _registering ? 'Já tenho conta' : 'Criar uma conta',
-                          ),
-                        ),
-                      if (!_registering) ...[
-                        TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () => setState(() => _recovering = true),
-                          child: const Text('Esqueci minha senha'),
-                        ),
-                        TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () => setState(() {
-                                  _legacy = !_legacy;
-                                  _identifier.clear();
-                                  _password.clear();
-                                  _error = null;
-                                }),
-                          child: Text(
-                            _legacy
-                                ? 'Usar nome de usuário'
-                                : 'Primeiro acesso com a conta antiga',
-                          ),
-                        ),
-                      ],
-                    ],
+    return LoginLayout(
+      form: Form(
+        key: _formKey,
+        child: AutofillGroup(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_legacy) ...[
+                const Text(
+                  'Entre com a conta antiga e escolha seu nome de usuário em Minha conta.',
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextFormField(
+                controller: _identifier,
+                enabled: !_busy,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: _legacy
+                      ? 'E-mail da conta antiga'
+                      : 'Nome de usuário',
+                ),
+                keyboardType: _legacy
+                    ? TextInputType.emailAddress
+                    : TextInputType.text,
+                autofillHints: [
+                  _legacy ? AutofillHints.email : AutofillHints.username,
+                ],
+                validator: (text) {
+                  if (_legacy) {
+                    return text?.contains('@') == true
+                        ? null
+                        : 'Informe o e-mail da conta antiga.';
+                  }
+                  return isUsername(text) ? null : 'Informe o nome de usuário.';
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _password,
+                enabled: !_busy,
+                decoration: const InputDecoration(labelText: 'Senha'),
+                obscureText: true,
+                autofillHints: const [AutofillHints.password],
+                onFieldSubmitted: _registering ? null : (_) => _signIn(),
+                validator: (text) {
+                  if (text == null || text.isEmpty) {
+                    return 'Informe sua senha.';
+                  }
+                  if (_registering && text.length < 8) {
+                    return 'Use pelo menos 8 caracteres.';
+                  }
+                  return null;
+                },
+              ),
+              if (_registering) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _passwordAgain,
+                  enabled: !_busy,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirmar senha',
                   ),
+                  onFieldSubmitted: (_) => _signIn(),
+                  validator: (text) => text == _password.text
+                      ? null
+                      : 'As senhas precisam ser iguais.',
+                ),
+              ],
+              const SizedBox(height: 20),
+              if (_error case final error?) Text(error),
+              FilledButton(
+                onPressed: _busy ? null : _signIn,
+                child: Text(
+                  _busy
+                      ? 'Aguarde…'
+                      : _registering
+                      ? 'Criar conta'
+                      : 'Entrar',
                 ),
               ),
-            ),
+              if (_registering || !_legacy)
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                          _registering = !_registering;
+                          _passwordAgain.clear();
+                          _error = null;
+                        }),
+                  child: Text(
+                    _registering ? 'Já tenho conta' : 'Criar uma conta',
+                  ),
+                ),
+              if (!_registering) ...[
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _recovering = true),
+                  child: const Text('Esqueci minha senha'),
+                ),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                          _legacy = !_legacy;
+                          _identifier.clear();
+                          _password.clear();
+                          _error = null;
+                        }),
+                  child: Text(
+                    _legacy
+                        ? 'Usar nome de usuário'
+                        : 'Primeiro acesso com a conta antiga',
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
