@@ -46,6 +46,19 @@ legenda e posicione-a antes do texto ou depois de um parágrafo. Separe
 os parágrafos com uma linha em branco. Os estilos e imagens usam os
 campos legados do caderno e acompanham a fila de sincronização.
 
+### Ajustar uma imagem do texto
+
+Em **Editar → Imagens no texto**, toque na imagem. Ajuste o tamanho, o
+zoom e as posições horizontal e vertical na prévia. O ajuste fica salvo
+na imagem e aparece na página de leitura.
+
+Para um fundo uniforme, abra **Remover fundo**, escolha a cor e use
+**Gerar prévia**. A tolerância controla quais cores próximas das bordas
+ficam transparentes. Compare com **Ver imagem original**. Para voltar à
+versão sem recorte, use **Restaurar fundo**. Toque em **Aplicar** e salve
+o registro para compartilhar. O processamento é local e somente a
+versão recortada adicional é enviada quando o registro é salvo.
+
 ## Referência para implementar a importação Word e PDF
 
 - Reconhecer títulos de seção por estilo e texto, inclusive variações de

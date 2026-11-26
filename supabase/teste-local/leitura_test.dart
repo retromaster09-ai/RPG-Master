@@ -210,6 +210,9 @@ void main() {
     );
     final notebookBeforeCover = await playerRepo.readNotebook(campaignId);
     final uncovered = notebookBeforeCover.records.single;
+    final cutoutPng = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGNgYGBg2Gcj9x8ABPACGAybM24AAAAASUVORK5CYII=',
+    );
     final playerDraft = NotebookDraft(
       id: uncovered.id!,
       category: uncovered.category!,
@@ -224,7 +227,14 @@ void main() {
           (start: 0, end: 2, attributes: {'bold': true}),
         ],
         pictures: [
-          NotebookPicture(png: recordPng, caption: 'Ilustração de teste'),
+          NotebookPicture(
+            png: recordPng,
+            cutoutPng: cutoutPng,
+            caption: 'Ilustração de teste',
+            extra: {
+              'look': {'size': 0.65, 'zoom': 1.1, 'x': 0.7},
+            },
+          ),
         ],
       ),
     );
@@ -258,7 +268,15 @@ void main() {
     );
     expect(covered.presentation.pictures.single.caption, 'Ilustração de teste');
     expect(covered.presentation.pictures.single.afterParagraph, -1);
-    expect(covered.presentation.pictures.single.hash, covered.coverHash);
+    final picture = covered.presentation.pictures.single;
+    expect(picture.hash, covered.coverHash);
+    expect(picture.displayedHash, isNot(picture.hash));
+    expect(picture.layout.size, 0.65);
+    expect(picture.layout.x, 0.7);
+    expect(
+      await gmRepo.readNotebookCover(campaignId, picture.displayedHash!),
+      cutoutPng,
+    );
     expect(covered.coverHash, isNot(campaignCoverHash));
     expect(
       await gmRepo.readNotebookCover(campaignId, covered.coverHash!),

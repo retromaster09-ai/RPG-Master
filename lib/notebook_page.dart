@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'campaigns.dart';
 import 'cover_frame.dart';
 import 'notebook_format.dart';
+import 'notebook_picture_editor.dart';
 import 'notebook_rich_text.dart';
 import 'mission_fields.dart';
 import 'session_dates.dart';
@@ -16,12 +17,14 @@ class NotebookCoverImage extends StatefulWidget {
     required this.campaignId,
     required this.hash,
     this.layout = const CampaignCoverLayout(fill: false),
+    this.pictureLayout,
   });
 
   final CampaignRepository repository;
   final String campaignId;
   final String hash;
   final CampaignCoverLayout layout;
+  final PictureLayout? pictureLayout;
 
   @override
   State<NotebookCoverImage> createState() => _NotebookCoverImageState();
@@ -50,6 +53,9 @@ class _NotebookCoverImageState extends State<NotebookCoverImage> {
       final bytes = snapshot.data;
       if (snapshot.connectionState != ConnectionState.done || bytes == null) {
         return const Center(child: Icon(Icons.image_outlined));
+      }
+      if (widget.pictureLayout case final layout?) {
+        return NotebookPictureFrame(bytes: bytes, layout: layout);
       }
       return CoverFrame(bytes: bytes, layout: widget.layout);
     },
@@ -200,13 +206,14 @@ class _ReadingSheet extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (picture.hash case final hash?)
+        if (picture.displayedHash case final hash?)
           SizedBox(
-            height: 210,
+            height: notebookPictureHeight,
             child: NotebookCoverImage(
               repository: repository,
               campaignId: campaignId,
               hash: hash,
+              pictureLayout: picture.layout,
             ),
           ),
         if (picture.caption.isNotEmpty)

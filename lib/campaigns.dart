@@ -566,19 +566,22 @@ class CampaignRepository {
         ? ''
         : await _uploadCover(campaignId, coverPng, 'rpg-notes');
     if (presentation != null &&
-        presentation.pictures.any((picture) => picture.png != null)) {
+        presentation.pictures.any((picture) => picture.needsUpload)) {
       final pictures = <NotebookPicture>[];
       for (final picture in presentation.pictures) {
-        if (_client.auth.currentUser?.id != author) {
-          throw const AuthException('A conta mudou durante o envio.');
+        Future<String?> upload(Uint8List? bytes, String? hash) async {
+          if (bytes == null) return hash;
+          if (_client.auth.currentUser?.id != author) {
+            throw const AuthException('A conta mudou durante o envio.');
+          }
+          return _uploadCover(campaignId, bytes, 'rpg-notes');
         }
-        final bytes = picture.png;
+
         pictures.add(
-          bytes == null
-              ? picture
-              : picture.uploaded(
-                  await _uploadCover(campaignId, bytes, 'rpg-notes'),
-                ),
+          picture.uploaded(
+            original: await upload(picture.png, picture.hash),
+            cutout: await upload(picture.cutoutPng, picture.cutoutHash),
+          ),
         );
       }
       presentation = NotebookPresentation(

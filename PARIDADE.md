@@ -23,6 +23,8 @@ e PDF está em [MODELO_CADERNO.md](MODELO_CADERNO.md). O `0.17.0-dev.14`
 adiciona capas compartilhadas, índice ilustrado e páginas de leitura.
 O `0.17.0-dev.15` recupera estilos de página, formatação de trechos,
 imagens no texto e enquadramento dos cartões no Caderno e nas Crônicas.
+O `0.17.0-dev.16` recupera tamanho, posicionamento e remoção de fundo
+por cor nas imagens do texto, com restauração do original.
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

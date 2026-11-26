@@ -119,10 +119,53 @@ final _notebookMediaPath = RegExp(r'^rpg-media:([0-9a-f]{64})$');
 String? notebookMediaHash(Object? path) =>
     path is String ? _notebookMediaPath.firstMatch(path)?.group(1) : null;
 
+class PictureLayout {
+  const PictureLayout({this.size = 1, this.zoom = 1, this.x = 0, this.y = 0});
+
+  factory PictureLayout.fromJson(Object? data) {
+    if (data is! Map) return const PictureLayout();
+    double number(String key, double initial, double min, double max) {
+      final value = data[key];
+      return value is num && value.isFinite
+          ? value.clamp(min, max).toDouble()
+          : initial;
+    }
+
+    final fallbackX = switch (data['align']) {
+      'left' => -1.0,
+      'right' => 1.0,
+      _ => 0.0,
+    };
+    return PictureLayout(
+      size: number('size', 1, 0.25, 1),
+      zoom: number('zoom', 1, 1, 3),
+      x: number('x', fallbackX, -1, 1),
+      y: number('y', 0, -1, 1),
+    );
+  }
+
+  final double size;
+  final double zoom;
+  final double x;
+  final double y;
+
+  PictureLayout edit({double? size, double? zoom, double? x, double? y}) =>
+      PictureLayout(
+        size: size ?? this.size,
+        zoom: zoom ?? this.zoom,
+        x: x ?? this.x,
+        y: y ?? this.y,
+      );
+
+  Map<String, Object> toJson() => {'size': size, 'zoom': zoom, 'x': x, 'y': y};
+}
+
 class NotebookPicture {
   const NotebookPicture({
     this.hash,
     this.png,
+    this.cutoutHash,
+    this.cutoutPng,
     this.caption = '',
     this.afterParagraph = -1,
     this.extra = const {},
@@ -134,6 +177,10 @@ class NotebookPicture {
         png: data['localPng'] is String
             ? base64Decode(data['localPng'] as String)
             : null,
+        cutoutHash: notebookMediaHash(data['cutoutPath']),
+        cutoutPng: data['localCutoutPng'] is String
+            ? base64Decode(data['localCutoutPng'] as String)
+            : null,
         caption: data['caption'] is String ? data['caption'] as String : '',
         afterParagraph: data['afterParagraph'] is int
             ? data['afterParagraph'] as int
@@ -141,27 +188,54 @@ class NotebookPicture {
         extra: {...data}
           ..remove('path')
           ..remove('localPng')
+          ..remove('cutoutPath')
+          ..remove('localCutoutPng')
           ..remove('caption')
           ..remove('afterParagraph'),
       );
 
   final String? hash;
   final Uint8List? png;
+  final String? cutoutHash;
+  final Uint8List? cutoutPng;
+
+  String? get displayedHash => cutoutHash ?? hash;
+  bool get needsUpload => png != null || cutoutPng != null;
+  PictureLayout get layout => PictureLayout.fromJson(extra['look']);
   final String caption;
   final int afterParagraph;
   final Map<String, dynamic> extra;
 
-  NotebookPicture edit({String? caption, int? afterParagraph}) =>
-      NotebookPicture(
-        hash: hash,
-        png: png,
-        caption: caption ?? this.caption,
-        afterParagraph: afterParagraph ?? this.afterParagraph,
-        extra: extra,
-      );
-
-  NotebookPicture uploaded(String hash) => NotebookPicture(
+  NotebookPicture edit({
+    required String caption,
+    required int afterParagraph,
+    PictureLayout? layout,
+    String? cutoutHash,
+    Uint8List? cutoutPng,
+  }) => NotebookPicture(
     hash: hash,
+    png: png,
+    cutoutHash: cutoutHash,
+    cutoutPng: cutoutPng,
+    caption: caption,
+    afterParagraph: afterParagraph,
+    extra: layout == null
+        ? extra
+        : {
+            ...extra,
+            'look': {
+              if (extra['look'] case final Map look) ...look,
+              ...layout.toJson(),
+            },
+          },
+  );
+
+  NotebookPicture uploaded({
+    required String? original,
+    required String? cutout,
+  }) => NotebookPicture(
+    hash: original,
+    cutoutHash: cutout,
     caption: caption,
     afterParagraph: afterParagraph,
     extra: extra,
@@ -171,6 +245,8 @@ class NotebookPicture {
     ...extra,
     if (hash != null) 'path': 'rpg-media:$hash',
     if (png != null) 'localPng': base64Encode(png!),
+    if (cutoutHash != null) 'cutoutPath': 'rpg-media:$cutoutHash',
+    if (cutoutPng != null) 'localCutoutPng': base64Encode(cutoutPng!),
     'caption': caption,
     'afterParagraph': afterParagraph,
   };

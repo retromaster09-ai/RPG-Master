@@ -11,6 +11,7 @@ import 'missions.dart';
 import 'notebook_sync.dart';
 import 'notebook_page.dart';
 import 'notebook_format.dart';
+import 'notebook_picture_editor.dart';
 import 'notebook_rich_text.dart';
 import 'session_dates.dart';
 
@@ -220,7 +221,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
           title: Text(
             picture.caption.isEmpty ? 'Imagem ${index + 1}' : picture.caption,
           ),
-          subtitle: Text(_picturePosition(picture.afterParagraph)),
+          subtitle: Text(notebookPicturePosition(picture.afterParagraph)),
           onTap: _saving || _choosingCover ? null : () => _editPicture(index),
           trailing: IconButton(
             tooltip: 'Remover imagem ${index + 1} do texto',
@@ -247,52 +248,18 @@ class _NotebookEditorState extends State<NotebookEditor> {
     ],
   );
 
-  String _picturePosition(int index) =>
-      index < 0 ? 'Antes do texto' : 'Depois do parágrafo ${index + 1}';
-
   Future<void> _editPicture(int index) async {
-    final paragraphCount = notebookParagraphs(_body.text).length;
     final picture = _pictures[index];
-    var caption = picture.caption;
-    var position = picture.afterParagraph.clamp(-1, paragraphCount - 1);
     final edited = await showDialog<NotebookPicture>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Imagem no texto'),
-        scrollable: true,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              initialValue: caption,
-              decoration: const InputDecoration(labelText: 'Legenda'),
-              onChanged: (value) => caption = value,
-            ),
-            DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: position,
-              decoration: const InputDecoration(labelText: 'Posição no texto'),
-              items: [
-                for (var i = -1; i < paragraphCount; i++)
-                  DropdownMenuItem(value: i, child: Text(_picturePosition(i))),
-              ],
-              onChanged: (value) => position = value!,
-            ),
-          ],
+      barrierDismissible: false,
+      builder: (context) => NotebookPictureEditor(
+        picture: picture,
+        paragraphCount: notebookParagraphs(_body.text).length,
+        load: (hash) => widget.sync.repository.readNotebookCover(
+          widget.sync.campaignId,
+          hash,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              picture.edit(caption: caption, afterParagraph: position),
-            ),
-            child: const Text('Aplicar'),
-          ),
-        ],
       ),
     );
     if (!mounted || edited == null) return;

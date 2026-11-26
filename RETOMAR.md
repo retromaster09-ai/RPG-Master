@@ -15,6 +15,11 @@ O enquadramento fica em `thumbLook` e a página de leitura mostra a capa
 inteira. As marcas usam posições UTF-16 e os campos `bodyMarks` e
 `answerMarks`. A formatação no roteiro privado ainda é uma etapa à parte.
 
+O 0.17.0-dev.16 acrescenta remoção de fundo por cor e ajuste de tamanho,
+zoom e posição nas imagens do texto. A imagem original mantém o campo
+`path` e o derivado usa `cutoutPath`, ambos no mesmo bucket privado.
+O ajuste usa `look` e preserva os campos legados não editados.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android
