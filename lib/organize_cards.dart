@@ -136,3 +136,17 @@ String organizeMessage(Object error) {
   }
   return 'Não foi possível concluir. Seus cartões continuam na lista.';
 }
+
+List<String> moveVisibleCard(
+  List<String> all,
+  List<String> visible,
+  int from,
+  int to,
+) {
+  final shown = visible.toSet();
+  final moved = [...visible];
+  final item = moved.removeAt(from);
+  moved.insert(to, item);
+  var next = 0;
+  return [for (final id in all) shown.contains(id) ? moved[next++] : id];
+}

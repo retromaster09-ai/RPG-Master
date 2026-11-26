@@ -16,6 +16,9 @@ na lixeira compartilhada e na privada. A versão `0.17.0-dev.10` recupera
 organização manual e duplicação. Lixeira offline e exclusão definitiva
 continuam pendentes.
 O `0.17.0-dev.11` recupera as etapas, os estados e o progresso das missões.
+O `0.17.0-dev.12` deixa as caixas e as etapas acionáveis nos cartões e
+permite arrastar os cartões na própria lista. Os filtros e a referência
+para importar Word e PDF estão em [MODELO_CADERNO.md](MODELO_CADERNO.md).
 
 | Área | Na versão 0.16.2 | No 0.17.0-dev.4 |
 | --- | --- | --- |

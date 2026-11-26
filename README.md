@@ -2,7 +2,8 @@
 
 Reconstrução em Flutter do aplicativo de campanha Android 0.16.2.
 Leia [RETOMAR.md](RETOMAR.md) para continuar o trabalho em outra máquina
-ou em outro chat.
+ou em outro chat. A estrutura do caderno e a referência para o importador
+estão em [MODELO_CADERNO.md](MODELO_CADERNO.md).
 
 ## Compilar e executar
 

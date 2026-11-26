@@ -19,6 +19,8 @@ class NotebookEditor extends StatefulWidget {
     required this.onSaved,
     this.record,
     this.savedDraft,
+    this.initialCategory,
+    this.initialConfidence,
   });
 
   final NotebookSync sync;
@@ -26,6 +28,8 @@ class NotebookEditor extends StatefulWidget {
   final NotebookDraft? savedDraft;
   final CampaignRecord? record;
   final bool isSession;
+  final String? initialCategory;
+  final String? initialConfidence;
   final VoidCallback onClose;
   final VoidCallback onSaved;
 
@@ -56,7 +60,12 @@ class _NotebookEditorState extends State<NotebookEditor> {
   late var _baseRecord = widget.savedDraft?.original ?? widget.record;
   late final _original =
       _baseRecord?.text ??
-      (title: '', body: '', answer: '', confidence: 'Não se aplica');
+      (
+        title: '',
+        body: '',
+        answer: '',
+        confidence: widget.initialConfidence ?? 'Não se aplica',
+      );
   late final _initial = widget.savedDraft?.text ?? _original;
   late final _title = TextEditingController(text: _initial.title);
   late final _body = TextEditingController(text: _initial.body);
@@ -64,7 +73,9 @@ class _NotebookEditorState extends State<NotebookEditor> {
   late String _confidence = _initial.confidence;
   late final String _startingCategory =
       _baseRecord?.category ??
-      (widget.isSession ? 'Sessão' : _categories.first);
+      (widget.isSession
+          ? 'Sessão'
+          : widget.initialCategory ?? _categories.first);
   late String _category = widget.savedDraft?.category ?? _startingCategory;
   late final _startingMission =
       widget.savedDraft?.mission ?? _baseRecord?.mission ?? const MissionPlan();
@@ -287,7 +298,14 @@ class _NotebookEditorState extends State<NotebookEditor> {
           leading: BackButton(onPressed: _close),
           title: Text(
             _baseRecord == null
-                ? (widget.isSession ? 'Nova crônica' : 'Novo registro')
+                ? (widget.isSession
+                      ? 'Nova crônica'
+                      : _startingCategory == 'Missão'
+                      ? 'Nova missão'
+                      : _startingCategory == 'Investigação' &&
+                            widget.initialConfidence == 'Hipótese'
+                      ? 'Nova hipótese'
+                      : 'Novo registro')
                 : (widget.isSession ? 'Editar crônica' : 'Editar registro'),
           ),
           actions: [

@@ -65,12 +65,7 @@ class MissionFields extends StatelessWidget {
   }
 
   void _toggleStep(int index, bool value) {
-    final steps = [...plan.steps];
-    steps[index] = steps[index].copyWith(completed: value);
-    final started = value && plan.status == MissionStatus.open
-        ? MissionStatus.inProgress
-        : null;
-    onChanged?.call(plan.copyWith(steps: steps, status: started));
+    onChanged?.call(plan.withStepChecked(index, value));
   }
 
   @override
@@ -232,6 +227,56 @@ class _StepDialogState extends State<_StepDialog> {
         child: const Text('Cancelar'),
       ),
       FilledButton(onPressed: _save, child: const Text('Salvar etapa')),
+    ],
+  );
+}
+
+class MissionChecklist extends StatelessWidget {
+  const MissionChecklist({super.key, required this.plan, this.onChanged});
+
+  final MissionPlan plan;
+  final ValueChanged<MissionPlan>? onChanged;
+
+  Future<void> _add(BuildContext context) async {
+    final result = await showDialog<_StepChange>(
+      context: context,
+      builder: (_) => const _StepDialog(),
+    );
+    final step = result?.step;
+    if (context.mounted && step != null) {
+      onChanged?.call(plan.copyWith(steps: [...plan.steps, step]));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (plan.steps.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Text('Etapas', style: Theme.of(context).textTheme.titleSmall),
+        for (final (index, step) in plan.steps.indexed)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(step.title),
+            subtitle: step.details.isEmpty ? null : Text(step.details),
+            value: step.completed,
+            onChanged: onChanged == null
+                ? null
+                : (value) =>
+                      onChanged!(plan.withStepChecked(index, value ?? false)),
+          ),
+      ],
+      if (onChanged != null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _add(context),
+            icon: const Icon(Icons.playlist_add),
+            label: const Text('Adicionar etapa'),
+          ),
+        ),
     ],
   );
 }

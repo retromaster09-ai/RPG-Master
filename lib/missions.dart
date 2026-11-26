@@ -66,6 +66,17 @@ class MissionPlan {
 
   int get completedSteps => steps.where((step) => step.completed).length;
 
+  MissionPlan withStepChecked(int index, bool checked) {
+    final updated = [...steps];
+    updated[index] = steps[index].copyWith(completed: checked);
+    return copyWith(
+      steps: updated,
+      status: checked && status == MissionStatus.open
+          ? MissionStatus.inProgress
+          : null,
+    );
+  }
+
   MissionPlan copyWith({
     String? priority,
     MissionStatus? status,

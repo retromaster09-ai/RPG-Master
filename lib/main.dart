@@ -574,6 +574,24 @@ enum _NotebookTab { records, sessions, private }
 
 enum _ChronicleOrder { recent, oldest, manual }
 
+typedef _NotebookDrag = ({
+  Notebook notebook,
+  List<String> all,
+  List<String> visible,
+  bool sessions,
+});
+
+const _hypothesesView = 'Hipóteses';
+const _notebookSections = {
+  'Missão': 'Objetivos e missões',
+  'Investigação': 'Mistérios e pistas',
+  'Personagem': 'Pessoas importantes',
+  'Lugar': 'Lugares importantes',
+  'Objeto': 'Relíquias, objetos e sinais',
+  'Carta': 'Cartas',
+  _hypothesesView: 'Mural de hipóteses',
+};
+
 enum _RecordAction { duplicate, trash }
 
 class NotebookScreen extends StatefulWidget {
@@ -607,6 +625,11 @@ class _NotebookScreenState extends State<NotebookScreen>
   MissionStatus? _missionFilter;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
+  final _missionWrites = <String>{};
+  _NotebookDrag? _dragBasis;
+  List<String>? _notebookOrderPreview;
+  List<String>? _gmOrderPreview;
+  _NotebookTab? _draggedTab;
 
   @override
   void initState() {
@@ -688,6 +711,10 @@ class _NotebookScreenState extends State<NotebookScreen>
         isSession: draft?.isSession ?? _tab == _NotebookTab.sessions,
         record: record,
         savedDraft: draft,
+        initialCategory: _category == _hypothesesView
+            ? 'Investigação'
+            : (_notebookSections.containsKey(_category) ? _category : null),
+        initialConfidence: _category == _hypothesesView ? 'Hipótese' : null,
         onClose: () => setState(() => _editor = null),
         onSaved: () => setState(() => _editor = null),
       );
@@ -796,6 +823,125 @@ class _NotebookScreenState extends State<NotebookScreen>
     }
   }
 
+  Future<void> _changeMission(
+    Notebook notebook,
+    CampaignRecord record,
+    MissionPlan plan,
+  ) async {
+    final id = record.id;
+    if (id == null ||
+        _missionWrites.contains(id) ||
+        _sync.drafts.any((draft) => draft.id == id)) {
+      return;
+    }
+    setState(() => _missionWrites.add(id));
+    try {
+      await _sync.keep(
+        NotebookDraft(
+          id: id,
+          category: 'Missão',
+          epoch: notebook.epoch,
+          text: record.text,
+          original: record,
+          mission: plan,
+          status: DraftStatus.queued,
+        ),
+      );
+      unawaited(_sync.refresh());
+    } on Exception catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível guardar a alteração neste aparelho.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _missionWrites.remove(id));
+    }
+  }
+
+  Future<void> _dropNotebookCard(_NotebookDrag drag, int from, int to) async {
+    if (from == to ||
+        _trashBusy ||
+        from >= drag.visible.length ||
+        to >= drag.visible.length) {
+      return;
+    }
+    final ids = moveVisibleCard(drag.all, drag.visible, from, to);
+    setState(() {
+      _trashBusy = true;
+      _draggedTab = drag.sessions
+          ? _NotebookTab.sessions
+          : _NotebookTab.records;
+      _notebookOrderPreview = ids;
+    });
+    try {
+      await widget.repository
+          .reorderRecords(
+            widget.campaign.id,
+            drag.notebook,
+            ids,
+            sessions: drag.sessions,
+          )
+          .timeout(notebookRequestTimeout);
+      await _sync.refreshAfterChange();
+      if (mounted && drag.sessions) {
+        setState(() => _chroniclePreference = _ChronicleOrder.manual);
+      }
+    } on Exception catch (error) {
+      if (mounted) _showOrderError(error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _trashBusy = false;
+          _notebookOrderPreview = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _dropGmCard(List<GmNote> group, int from, int to) async {
+    if (from == to || _trashBusy) return;
+    final ids = group.map((note) => note.id).toList();
+    final item = ids.removeAt(from);
+    ids.insert(to, item);
+    setState(() {
+      _trashBusy = true;
+      _gmOrderPreview = ids;
+    });
+    try {
+      await widget.repository
+          .reorderGmNotes(widget.campaign, group, ids)
+          .timeout(notebookRequestTimeout);
+      if (mounted && _tab == _NotebookTab.private) {
+        final notes = await widget.repository
+            .readGmNotes(widget.campaign)
+            .timeout(notebookRequestTimeout);
+        if (mounted && _tab == _NotebookTab.private) {
+          setState(() {
+            _privateNotes = Future.value(notes);
+          });
+        }
+      }
+    } on Exception catch (error) {
+      if (mounted) _showOrderError(error);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _trashBusy = false;
+          _gmOrderPreview = null;
+        });
+      }
+    }
+  }
+
+  void _showOrderError(Object error) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(organizeMessage(error))));
+
   void _organizeNotebook(
     Notebook notebook,
     List<CampaignRecord> records, {
@@ -885,7 +1031,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   });
 
   Widget _gmNotes(AsyncSnapshot<List<GmNote>> snapshot) {
-    if (snapshot.connectionState != ConnectionState.done) {
+    if (!snapshot.hasData && snapshot.connectionState != ConnectionState.done) {
       return const Center(child: CircularProgressIndicator());
     }
     if (snapshot.hasError) {
@@ -904,89 +1050,115 @@ class _NotebookScreenState extends State<NotebookScreen>
           : text.kind.plural;
       sections[label]!.add(note);
     }
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: _editGmNote,
-            icon: const Icon(Icons.add),
-            label: const Text('Nova nota ou página'),
+    final preview = {
+      for (final (index, id) in (_gmOrderPreview ?? const <String>[]).indexed)
+        id: index,
+    };
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: _editGmNote,
+                icon: const Icon(Icons.add),
+                label: const Text('Nova nota ou página'),
+              ),
+            ),
           ),
         ),
         if (notes.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: Text('Seu roteiro está vazio.')),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: Text('Seu roteiro está vazio.')),
+            ),
           ),
         for (final section in sections.entries)
-          if (section.value.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      section.key,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  if (section.value.length > 1)
-                    IconButton(
-                      tooltip: 'Organizar ${section.key}',
-                      icon: const Icon(Icons.swap_vert),
-                      onPressed: _trashBusy
-                          ? null
-                          : () => _organizeGm(
-                              orderCards(
-                                section.value,
-                                (note) => note.orderIndex,
-                              ),
-                            ),
-                    ),
-                ],
+          if (section.value.isNotEmpty)
+            ..._gmSection(
+              section.key,
+              orderCards(
+                section.value,
+                (note) => preview[note.id] ?? note.orderIndex,
               ),
             ),
-            for (final note in orderCards(
-              section.value,
-              (note) => note.orderIndex,
-            ))
-              Card(
-                child: ListTile(
-                  title: Text(note.text.title),
-                  subtitle: note.text.body.isEmpty
-                      ? null
-                      : Text(
-                          note.text.body,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                  trailing: PopupMenuButton<_RecordAction>(
-                    enabled: !_trashBusy,
-                    tooltip: 'Opções da nota',
-                    onSelected: (_) => _duplicate(
-                      (id) => widget.repository.duplicateGmNote(
-                        widget.campaign,
-                        note,
-                        id,
-                      ),
-                      _closeGmEditor,
-                    ),
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: _RecordAction.duplicate,
-                        child: Text('Duplicar'),
-                      ),
-                    ],
-                  ),
-                  onTap: () => _openGmNote(note),
-                ),
-              ),
-          ],
       ],
     );
   }
+
+  List<Widget> _gmSection(String label, List<GmNote> notes) => [
+    SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            if (notes.length > 1)
+              IconButton(
+                tooltip: 'Organizar $label',
+                icon: const Icon(Icons.swap_vert),
+                onPressed: _trashBusy ? null : () => _organizeGm(notes),
+              ),
+          ],
+        ),
+      ),
+    ),
+    SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      sliver: SliverReorderableList(
+        key: ValueKey(label),
+        itemCount: notes.length,
+        onReorderItem: (from, to) => _dropGmCard(notes, from, to),
+        itemBuilder: (context, index) {
+          final note = notes[index];
+          return ReorderableDelayedDragStartListener(
+            key: ValueKey(note.id),
+            index: index,
+            enabled: !_trashBusy && notes.length > 1,
+            child: Card(
+              child: ListTile(
+                title: Text(note.text.title),
+                subtitle: note.text.body.isEmpty
+                    ? null
+                    : Text(
+                        note.text.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                trailing: PopupMenuButton<_RecordAction>(
+                  enabled: !_trashBusy,
+                  tooltip: 'Opções da nota',
+                  onSelected: (_) => _duplicate(
+                    (id) => widget.repository.duplicateGmNote(
+                      widget.campaign,
+                      note,
+                      id,
+                    ),
+                    _closeGmEditor,
+                  ),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: _RecordAction.duplicate,
+                      child: Text('Duplicar'),
+                    ),
+                  ],
+                ),
+                onTap: () => _openGmNote(note),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  ];
 
   List<CampaignRecord> _sortSessions(
     List<CampaignRecord> records,
@@ -1033,10 +1205,10 @@ class _NotebookScreenState extends State<NotebookScreen>
         .where((draft) => draft.isSession == isSession)
         .toList();
     final categories = {
-      ?_category,
+      ..._notebookSections.keys,
       for (final record in allEntries) ?record.category,
       for (final draft in allDrafts) draft.category,
-    }.toList()..sort();
+    };
     final terms = removeDiacritics(_search.text.trim().toLowerCase())
         .split(RegExp(r'\s+'))
         .where((term) => term.isNotEmpty);
@@ -1048,7 +1220,13 @@ class _NotebookScreenState extends State<NotebookScreen>
       List<String> dates,
       MissionPlan? mission,
     ) {
-      if (_category != null && category != _category) return false;
+      if (_category == _hypothesesView) {
+        if (category != 'Investigação' || text.confidence != 'Hipótese') {
+          return false;
+        }
+      } else if (_category != null && category != _category) {
+        return false;
+      }
       if (_missionFilter != null && mission?.status != _missionFilter) {
         return false;
       }
@@ -1099,7 +1277,22 @@ class _NotebookScreenState extends State<NotebookScreen>
     List<CampaignRecord> sortCards(List<CampaignRecord> source) => isSession
         ? _sortSessions(source, preference)
         : orderCards(source, (record) => record.orderIndex(notebookOrder));
-    final entries = sortCards(matchingEntries);
+    final ranked = sortCards(matchingEntries);
+    final positions = {
+      if (_draggedTab == _tab && _notebookOrderPreview != null)
+        for (final (rank, id) in _notebookOrderPreview!.indexed) id: rank,
+    };
+    final entries = positions.isEmpty
+        ? ranked
+        : orderCards(ranked, (record) => positions[record.id]);
+    final movable =
+        entries.length > 1 && entries.every((record) => record.id != null);
+    final drag = (
+      notebook: notebook,
+      sessions: isSession,
+      all: [for (final record in sortCards(allEntries)) ?record.id],
+      visible: [for (final record in entries) ?record.id],
+    );
     final header = <Widget>[
       if (_sync.localError)
         const ListTile(
@@ -1117,7 +1310,15 @@ class _NotebookScreenState extends State<NotebookScreen>
           FilledButton.icon(
             onPressed: () => _edit(notebook),
             icon: const Icon(Icons.add),
-            label: Text(isSession ? 'Nova crônica' : 'Novo registro'),
+            label: Text(
+              isSession
+                  ? 'Nova crônica'
+                  : switch (_category) {
+                      'Missão' => 'Nova missão',
+                      _hypothesesView => 'Nova hipótese',
+                      _ => 'Novo registro',
+                    },
+            ),
           ),
           const Spacer(),
           if (allEntries.where((record) => record.id != null).length > 1)
@@ -1184,7 +1385,10 @@ class _NotebookScreenState extends State<NotebookScreen>
             items: [
               const DropdownMenuItem(child: Text('Todas as categorias')),
               for (final category in categories)
-                DropdownMenuItem(value: category, child: Text(category)),
+                DropdownMenuItem(
+                  value: category,
+                  child: Text(_notebookSections[category] ?? category),
+                ),
             ],
             onChanged: (category) => setState(() {
               _category = category;
@@ -1233,8 +1437,10 @@ class _NotebookScreenState extends State<NotebookScreen>
                   DraftStatus.review => 'Revisar edição',
                 }),
                 if (draft.mission ?? draft.original?.mission
-                    case final mission?)
+                    case final mission?) ...[
                   MissionSummary(plan: mission),
+                  if (mission.steps.isNotEmpty) MissionChecklist(plan: mission),
+                ],
               ],
             ),
             onTap: draft.status == DraftStatus.queued
@@ -1243,15 +1449,24 @@ class _NotebookScreenState extends State<NotebookScreen>
           ),
         ),
     ];
-    return ListView.builder(
+    return ReorderableListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount:
-          header.length +
-          (entries.isEmpty && drafts.isEmpty ? 1 : entries.length),
+      buildDefaultDragHandles: false,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: header,
+      ),
+      itemCount: entries.isEmpty && drafts.isEmpty ? 1 : entries.length,
+      onReorderStart: (_) => _dragBasis = drag,
+      onReorderItem: (from, to) {
+        final basis = _dragBasis ?? drag;
+        _dragBasis = null;
+        if (movable) unawaited(_dropNotebookCard(basis, from, to));
+      },
       itemBuilder: (context, index) {
-        if (index < header.length) return header[index];
         if (entries.isEmpty) {
           return Padding(
+            key: const ValueKey('empty-notebook-list'),
             padding: const EdgeInsets.all(16),
             child: Center(
               child: Text(
@@ -1262,8 +1477,11 @@ class _NotebookScreenState extends State<NotebookScreen>
             ),
           );
         }
-        final record = entries[index - header.length];
-        return Card(
+        final record = entries[index];
+        final plan = record.mission;
+        final canChange =
+            record.id != null && !_missionWrites.contains(record.id);
+        final card = Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -1271,6 +1489,26 @@ class _NotebookScreenState extends State<NotebookScreen>
               children: [
                 Row(
                   children: [
+                    if (plan != null)
+                      Tooltip(
+                        message: plan.completed
+                            ? 'Reabrir missão'
+                            : 'Marcar missão como concluída',
+                        child: Checkbox(
+                          value: plan.completed,
+                          onChanged: canChange
+                              ? (checked) => _changeMission(
+                                  notebook,
+                                  record,
+                                  plan.copyWith(
+                                    status: checked == true
+                                        ? MissionStatus.completed
+                                        : MissionStatus.inProgress,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
                     Expanded(
                       child: Text(
                         record.title,
@@ -1332,8 +1570,7 @@ class _NotebookScreenState extends State<NotebookScreen>
                   ),
                 if (!isSession && record.category != null)
                   Text(record.category!),
-                if (record.mission case final mission?)
-                  MissionSummary(plan: mission),
+                if (plan != null) MissionSummary(plan: plan),
                 if (record.confidence case final confidence?)
                   Text('Confiança · $confidence'),
                 if (record.body.isNotEmpty) SelectableText(record.body),
@@ -1342,9 +1579,22 @@ class _NotebookScreenState extends State<NotebookScreen>
                   const Text('Resposta'),
                   SelectableText(record.answer),
                 ],
+                if (plan != null)
+                  MissionChecklist(
+                    plan: plan,
+                    onChanged: canChange
+                        ? (updated) => _changeMission(notebook, record, updated)
+                        : null,
+                  ),
               ],
             ),
           ),
+        );
+        return ReorderableDelayedDragStartListener(
+          key: ValueKey(record.id ?? 'notebook-$index'),
+          index: index,
+          enabled: movable && !_trashBusy,
+          child: Listener(behavior: HitTestBehavior.opaque, child: card),
         );
       },
     );

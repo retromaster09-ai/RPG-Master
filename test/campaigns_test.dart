@@ -292,7 +292,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Investigação').last);
+    await tester.tap(find.text('Mistérios e pistas').last);
     await tester.pumpAndSettle();
     expect(find.text('Pista'), findsOneWidget);
   });
@@ -524,6 +524,89 @@ void main() {
     },
   );
 
+  testWidgets('marca etapas e conclui a missão pelo cartão', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(750, 1350));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository()..mission = const MissionPlan();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          offlineStorage: MemoryOfflineStorage(),
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adicionar etapa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nome da etapa'),
+      'Ler o bilhete',
+    );
+    await tester.tap(find.text('Salvar etapa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ler o bilhete'));
+    await tester.pumpAndSettle();
+    expect(repository.mission!.steps.single.completed, isTrue);
+    await tester.tap(find.byTooltip('Marcar missão como concluída'));
+    await tester.pumpAndSettle();
+    expect(repository.mission!.status, MissionStatus.completed);
+    expect(find.text('1 de 1 etapas concluídas'), findsOneWidget);
+    await tester.tap(find.byTooltip('Reabrir missão'));
+    await tester.pumpAndSettle();
+    expect(repository.mission!.status, MissionStatus.inProgress);
+    expect(repository.mission!.steps.single.completed, isTrue);
+  });
+
+  testWidgets('segura o título e arrasta o cartão no caderno', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(750, 1350));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository()
+      ..sessions = const [
+        {'id': 'next', 'title': 'Outra pista', 'category': 'Investigação'},
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          offlineStorage: MemoryOfflineStorage(),
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final first = tester.getCenter(find.text('Pista'));
+    final second = tester.getCenter(find.text('Outra pista'));
+    expect(second.dy, greaterThan(first.dy));
+    final gesture = await tester.startGesture(second);
+    await tester.pump(const Duration(milliseconds: 550));
+    await gesture.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await gesture.moveTo(first + const Offset(0, 12));
+    await tester.pump();
+    await gesture.moveTo(first - const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(find.text('Outra pista')).dy, lessThan(first.dy));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(repository.reorderedIds, ['next', 'entry']);
+  });
+
+  test('mantém as posições ocultas durante a reorganização filtrada', () {
+    expect(moveVisibleCard(['a', 'x', 'b', 'y', 'c'], ['a', 'b', 'c'], 2, 0), [
+      'c',
+      'x',
+      'a',
+      'y',
+      'b',
+    ]);
+  });
+
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {
     final client = SupabaseClient(
       'https://example.invalid',
@@ -626,6 +709,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
   int saves = 0;
   bool trashed = false;
   MissionPlan? mission;
+  List<String>? reorderedIds;
   List<Map<String, Object>> sessions = const [];
 
   @override
@@ -646,6 +730,16 @@ class _EditorRepository extends Fake implements CampaignRepository {
         ...sessions,
       ],
     });
+  }
+
+  @override
+  Future<void> reorderRecords(
+    String campaignId,
+    Notebook notebook,
+    List<String> ids, {
+    required bool sessions,
+  }) async {
+    reorderedIds = ids;
   }
 
   @override
