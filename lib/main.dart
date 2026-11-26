@@ -587,7 +587,6 @@ typedef _NotebookDrag = ({
   bool sessions,
 });
 
-const _hypothesesView = 'Hipóteses';
 const _uncategorizedView = 'Sem categoria';
 const _notebookSections = {
   'Missão': 'Objetivos e missões',
@@ -596,7 +595,6 @@ const _notebookSections = {
   'Lugar': 'Lugares importantes',
   'Objeto': 'Relíquias, objetos e sinais',
   'Carta': 'Cartas',
-  _hypothesesView: 'Mural de hipóteses',
 };
 
 const _notebookSectionIcons = {
@@ -606,7 +604,6 @@ const _notebookSectionIcons = {
   'Lugar': Icons.place_outlined,
   'Objeto': Icons.diamond_outlined,
   'Carta': Icons.mail_outline,
-  _hypothesesView: Icons.lightbulb_outline,
 };
 
 const _notebookSectionArt = {
@@ -616,10 +613,11 @@ const _notebookSectionArt = {
   'Lugar': 'places',
   'Objeto': 'relics',
   'Carta': 'letters',
-  _hypothesesView: 'theories',
 };
 
 enum _RecordAction { duplicate, trash }
+
+enum _NotebookTool { importWord }
 
 class NotebookScreen extends StatefulWidget {
   const NotebookScreen({
@@ -650,6 +648,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   final _search = TextEditingController();
   String? _category;
   bool _showCompletedMissions = false;
+  bool _onlyHypotheses = false;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
   bool _readingWord = false;
@@ -711,6 +710,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       _search.clear();
       _category = null;
       _showCompletedMissions = false;
+      _onlyHypotheses = false;
       _tab = tab;
       if (_tab == _NotebookTab.private) {
         _privateNotes = widget.repository.readGmNotes(widget.campaign);
@@ -725,6 +725,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       _category = category;
       _search.clear();
       _showCompletedMissions = false;
+      _onlyHypotheses = false;
     });
   }
 
@@ -772,10 +773,10 @@ class _NotebookScreenState extends State<NotebookScreen>
         isSession: draft?.isSession ?? _tab == _NotebookTab.sessions,
         record: record,
         savedDraft: draft,
-        initialCategory: _category == _hypothesesView
-            ? 'Investigação'
-            : (_notebookSections.containsKey(_category) ? _category : null),
-        initialConfidence: _category == _hypothesesView ? 'Hipótese' : null,
+        initialCategory: _notebookSections.containsKey(_category)
+            ? _category
+            : null,
+        initialConfidence: _onlyHypotheses ? 'Hipótese' : null,
         onClose: () => setState(() => _editor = null),
         onSaved: () => setState(() => _editor = null),
       );
@@ -1345,26 +1346,41 @@ class _NotebookScreenState extends State<NotebookScreen>
       children: [
         ..._syncNotices(),
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-          child: Text(
-            'Seções do caderno',
-            style: Theme.of(context).textTheme.headlineSmall,
+          padding: const EdgeInsets.only(left: 8, bottom: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Seções do caderno',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              PopupMenuButton<_NotebookTool>(
+                enabled: !_readingWord && !_trashBusy,
+                tooltip: _readingWord
+                    ? 'Lendo Word…'
+                    : 'Ferramentas do caderno',
+                icon: _readingWord
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.more_vert),
+                onSelected: (_) => _openWord(),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: _NotebookTool.importWord,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.upload_file_outlined),
+                      title: Text('Importar Word'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            icon: _readingWord
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.upload_file_outlined),
-            onPressed: _readingWord || _trashBusy ? null : _openWord,
-            label: Text(_readingWord ? 'Lendo Word…' : 'Importar Word'),
-          ),
-        ),
-        const SizedBox(height: 6),
         for (final section in sections) _sectionCard(section),
       ],
     );
@@ -1456,13 +1472,10 @@ class _NotebookScreenState extends State<NotebookScreen>
       List<String> dates,
       MissionPlan? mission,
     ) {
-      if (_category == _hypothesesView) {
-        if (category != 'Investigação' || text.confidence != 'Hipótese') {
-          return false;
-        }
-      } else if (!isSession && (category ?? _uncategorizedView) != _category) {
+      if (!isSession && (category ?? _uncategorizedView) != _category) {
         return false;
       }
+      if (_onlyHypotheses && text.confidence != 'Hipótese') return false;
       if (isMissionSection &&
           (mission?.completed ?? false) != _showCompletedMissions) {
         return false;
@@ -1557,11 +1570,11 @@ class _NotebookScreenState extends State<NotebookScreen>
               label: Text(
                 isSession
                     ? 'Nova crônica'
-                    : switch (_category) {
-                        'Missão' => 'Nova missão',
-                        _hypothesesView => 'Nova hipótese',
-                        _ => 'Novo registro',
-                      },
+                    : _onlyHypotheses
+                    ? 'Nova hipótese'
+                    : isMissionSection
+                    ? 'Nova missão'
+                    : 'Novo registro',
               ),
             ),
           const Spacer(),
@@ -1615,6 +1628,15 @@ class _NotebookScreenState extends State<NotebookScreen>
           onChanged: (_) => setState(() {}),
         ),
       ),
+      if (_category == 'Investigação')
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilterChip(
+            label: const Text('Só hipóteses'),
+            selected: _onlyHypotheses,
+            onSelected: (value) => setState(() => _onlyHypotheses = value),
+          ),
+        ),
       for (final draft in drafts.values)
         Card(
           child: ListTile(
@@ -1670,6 +1692,8 @@ class _NotebookScreenState extends State<NotebookScreen>
                     ? (_showCompletedMissions
                           ? 'Nenhuma missão concluída.'
                           : 'Nenhuma missão ativa.')
+                    : _onlyHypotheses
+                    ? 'Nenhuma hipótese registrada.'
                     : 'Nenhum registro nesta seção.',
               ),
             ),

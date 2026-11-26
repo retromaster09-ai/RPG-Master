@@ -357,6 +357,53 @@ void main() {
     expect(sync.drafts.single.text.body, 'Texto antes do reset');
   });
 
+  testWidgets(
+    'Word fica nas ferramentas e hipóteses ficam dentro de mistérios',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 850));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _EditorRepository()
+        ..sessions = [
+          {
+            'id': 'suspect',
+            'title': 'Teoria da ponte',
+            'body': 'O guarda pode estar envolvido',
+            'category': 'Investigação',
+            'confidence': 'Hipótese',
+          },
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotebookScreen(
+            campaign: campaign,
+            repository: repository,
+            isOwner: false,
+            onBack: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Importar Word'), findsNothing);
+      expect(find.text('Mural de hipóteses'), findsNothing);
+      await tester.tap(find.byTooltip('Ferramentas do caderno'));
+      await tester.pumpAndSettle();
+      expect(find.text('Importar Word'), findsOneWidget);
+      await tester.tapAt(const Offset(16, 400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mistérios e pistas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pista'), findsOneWidget);
+      expect(find.text('Teoria da ponte'), findsOneWidget);
+      await tester.tap(find.text('Só hipóteses'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pista'), findsNothing);
+      expect(find.text('Teoria da ponte'), findsOneWidget);
+      await tester.tap(find.text('Nova hipótese'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hipótese'), findsOneWidget);
+    },
+  );
+
   testWidgets('a busca encontra texto com acento dentro da seção', (
     tester,
   ) async {

@@ -25,6 +25,10 @@ revisão. O envio confirmado usa a revisão existente do caderno para incluir
 apenas os registros escolhidos, preservando o conteúdo anterior. PDF ainda
 é uma etapa futura. O Word dos jogadores fica fora do repositório.
 
+O 0.17.0-dev.18 move a importação de Word para as ferramentas no índice
+do Caderno. Hipóteses aparecem como filtro em Mistérios e pistas, usando
+o campo de confiança que já existe nos registros.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

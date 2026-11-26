@@ -8,11 +8,10 @@ confiança quando fizer sentido.
 | Seção | Como registrar |
 | --- | --- |
 | Objetivos e missões | Um cartão por objetivo, com caixa de conclusão, etapas opcionais e detalhes em cada etapa. O grupo pode concluir a missão mesmo com etapas opcionais em aberto. |
-| Mistérios e pistas | Uma pergunta ou pista por cartão. Use o texto para registrar o que apareceu em jogo e o campo de resposta para o que o grupo descobriu. |
+| Mistérios e pistas | Uma pergunta, pista ou hipótese por cartão. Use a resposta para o que o grupo descobriu. Ative **Só hipóteses** para ver os registros marcados com confiança **Hipótese**. |
 | Pessoas importantes | Nome e notas sobre a pessoa. |
 | Lugares importantes | Nome do local e o que o grupo encontrou lá. |
 | Relíquias, objetos e sinais | Nome, descrição e contexto da descoberta. |
-| Mural de hipóteses | Mostra os registros de Mistérios e pistas marcados com confiança **Hipótese**. O mesmo registro pode aparecer nas duas seções. |
 | Crônicas | Uma entrada por sessão ou resumo, com datas opcionais e ordenação por data ou manual. |
 
 A seção **Cartas** também está disponível. Abra **Objetivos e missões**
@@ -61,7 +60,7 @@ versão recortada adicional é enviada quando o registro é salvo.
 
 ## Importar um documento Word
 
-Abra **Caderno → Importar Word** e escolha um arquivo `.docx` de até 12 MB.
+Abra **Caderno → ⋮ → Importar Word** e escolha um arquivo `.docx` de até 12 MB.
 A prévia mostra a campanha de destino e as seções sugeridas. Toque no
 registro para revisar título, texto, seção, datas e etapas quando cabível.
 Selecione os registros desejados e confirme em **Importar para a campanha**.
