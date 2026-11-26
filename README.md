@@ -33,6 +33,20 @@ e os mesmos parâmetros `--dart-define` do projeto Supabase de teste.
 O APK usa assinatura de teste. Antes de publicar uma versão de
 distribuição, configure sua assinatura e guarde a chave em local privado.
 
+## Pacote de teste para PC
+
+No Windows de 64 bits, extraia o ZIP inteiro e abra
+**Abrir RPG Master Set.exe**. O executável abre a edição web no navegador.
+A janela que inicia o app serve os arquivos em `http://127.0.0.1:8142/`
+e precisa ficar aberta enquanto o app estiver em uso. A edição de teste
+se conecta ao mesmo projeto que o APK de teste.
+
+Para refazer o pacote, compile a edição web com
+`flutter build web --release --no-web-resources-cdn` e os mesmos
+parâmetros `--dart-define` do APK. Copie o conteúdo de `build/web` para a
+pasta `web` do pacote. Compile `tools/pc/main.go` com o Go para Windows
+amd64 e coloque o executável ao lado dessa pasta.
+
 ## Montar uma mesa no app
 
 Uma pessoa nova entra por **Criar uma conta**, com nome de usuário e senha.

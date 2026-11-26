@@ -7,3 +7,6 @@ Emblema de livro e dado e ilustração de entrada originais gerados para o proje
 - `login-party.webp` — ilustração original do login, com uma cartógrafa, um narrador e
   um castelo de papel que surge de um caderno de campanha. Gerada para o projeto em anime 2D e
   exportada em WebP a 1536 × 1024.
+
+- `login-party-portrait.webp` — adaptação vertical aprovada da mesma cena,
+  com a mesa estendida para acomodar o formulário no celular.

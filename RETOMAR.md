@@ -45,6 +45,12 @@ Crônicas. O login tem uma ilustração anime 2D original em
 `assets/brand/login-party.webp`. O formulário aparece abaixo da arte no
 celular e ao lado dela em telas largas. A distribuição nativa para PC continua como etapa futura.
 
+O 0.17.0-dev.22 aplica o login em tela cheia aprovado. O formulário
+translúcido fica centralizado na parte inferior. A arte original é usada
+em telas largas. Para celular em pé, a adaptação aprovada fica em
+`assets/brand/login-party-portrait.webp`. A tela de entrada e as contas
+são compartilhadas pelas versões Android e web.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

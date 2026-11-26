@@ -4,20 +4,29 @@ import 'package:rpg_master_set/main.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  testWidgets('login empilha no celular e abre lado a lado no PC', (
+  testWidgets('login ocupa a tela e centraliza o painel no celular e no PC', (
     tester,
   ) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.binding.setSurfaceSize(const Size(390, 820));
+    await tester.binding.setSurfaceSize(const Size(390, 844));
     await tester.pumpWidget(
       MaterialApp(home: SignInScreen(client: _UnusedSupabase())),
     );
-    final brand = find.text('RPG Master Set');
+    final artwork = find.byKey(const ValueKey('login-art'));
+    final emblem = find.byKey(const ValueKey('login-emblem'));
+    final brand = find.text('RPG Master');
     final form = find.byType(Form);
-    expect(tester.getRect(brand).bottom, lessThan(tester.getRect(form).top));
+    expect(tester.getSize(artwork), const Size(390, 844));
+    expect(tester.getCenter(emblem).dx, 195);
+    expect(tester.getCenter(brand).dx, 195);
+    expect(tester.getCenter(form).dx, 195);
+    expect(tester.getRect(form).top, greaterThan(490));
+
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     await tester.pumpAndSettle();
-    expect(tester.getRect(brand).right, lessThan(tester.getRect(form).left));
+    expect(tester.getSize(artwork), const Size(1280, 800));
+    expect(tester.getRect(emblem).left, lessThan(tester.getRect(form).left));
+    expect(tester.getCenter(form).dx, 640);
     expect(tester.takeException(), isNull);
   });
 

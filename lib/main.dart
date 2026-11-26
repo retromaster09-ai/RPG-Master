@@ -152,6 +152,7 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _legacy = false;
   bool _registering = false;
   bool _recovering = false;
+  bool _showPassword = false;
   bool _busy = false;
   String? _error;
 
@@ -246,8 +247,20 @@ class _SignInScreenState extends State<SignInScreen> {
               TextFormField(
                 controller: _password,
                 enabled: !_busy,
-                decoration: const InputDecoration(labelText: 'Senha'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  suffixIcon: IconButton(
+                    tooltip: _showPassword ? 'Ocultar senha' : 'Mostrar senha',
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _showPassword = !_showPassword),
+                    icon: Icon(
+                      _showPassword ? Icons.visibility_off : Icons.visibility,
+                      size: 19,
+                    ),
+                  ),
+                ),
+                obscureText: !_showPassword,
                 autofillHints: const [AutofillHints.password],
                 onFieldSubmitted: _registering ? null : (_) => _signIn(),
                 validator: (text) {
@@ -287,26 +300,34 @@ class _SignInScreenState extends State<SignInScreen> {
                       : 'Entrar',
                 ),
               ),
-              if (_registering || !_legacy)
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() {
-                          _registering = !_registering;
-                          _passwordAgain.clear();
-                          _error = null;
-                        }),
-                  child: Text(
-                    _registering ? 'Já tenho conta' : 'Criar uma conta',
-                  ),
-                ),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                children: [
+                  if (_registering || !_legacy)
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                              _registering = !_registering;
+                              _passwordAgain.clear();
+                              _error = null;
+                            }),
+                      child: Text(
+                        _registering ? 'Já tenho conta' : 'Criar uma conta',
+                      ),
+                    ),
+                  if (!_registering)
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _recovering = true),
+                      child: const Text('Esqueci minha senha'),
+                    ),
+                ],
+              ),
               if (!_registering) ...[
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _recovering = true),
-                  child: const Text('Esqueci minha senha'),
-                ),
+                const Divider(height: 1, color: Color(0x5ec1a9cd)),
                 TextButton(
                   onPressed: _busy
                       ? null
@@ -314,6 +335,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           _legacy = !_legacy;
                           _identifier.clear();
                           _password.clear();
+                          _showPassword = false;
                           _error = null;
                         }),
                   child: Text(
