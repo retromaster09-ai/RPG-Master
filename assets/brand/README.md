@@ -4,6 +4,6 @@ Emblema de livro e dado e ilustração de entrada originais gerados para o proje
 
 `adventurers.png`: ilustração original gerada para o cabeçalho de campanhas, com quatro aventureiros adultos enfrentando um dragão. Referências visuais de anime fornecidas pelo usuário; personagens originais.
 
-- `login-party.webp` — ilustração original do login, com três aventureiras
-  num vale de ruínas flutuantes. Gerada para o projeto em anime 2D e
+- `login-party.webp` — ilustração original do login, com uma cartógrafa, um narrador e
+  um castelo de papel que surge de um caderno de campanha. Gerada para o projeto em anime 2D e
   exportada em WebP a 1536 × 1024.
