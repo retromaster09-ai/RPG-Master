@@ -58,6 +58,11 @@ cristal e o acorde de entrada. A preferência começa desligada e é
 guardada no navegador. Os sons são sintetizados em `web/login_audio.js`.
 O APK de celular recomendado continua na versão 0.17.0-dev.22.
 
+O 0.17.0-dev.24 centraliza o símbolo e o título no topo do login para PC
+e usa a adaptação panorâmica `assets/brand/login-party-wide.webp`.
+O enquadramento foi conferido em 1920 × 912, a proporção da janela
+mostrada pelo mestre. O APK recomendado continua na versão 0.17.0-dev.22.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

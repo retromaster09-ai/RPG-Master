@@ -101,7 +101,7 @@ class LoginLayout extends StatelessWidget {
             final horizontal = portrait ? 20.0 : (short ? 32.0 : 56.0);
             final padding = EdgeInsets.fromLTRB(
               horizontal + insets.left,
-              (portrait ? 24.0 : (short ? 20.0 : 54.0)) + insets.top,
+              (portrait || desktop ? 24.0 : (short ? 20.0 : 54.0)) + insets.top,
               horizontal + insets.right,
               (portrait ? 10.0 : (short ? 20.0 : 32.0)) +
                   insets.bottom +
@@ -151,10 +151,14 @@ class LoginLayout extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Align(
-                          alignment: portrait
+                          alignment: portrait || desktop
                               ? Alignment.topCenter
                               : Alignment.topLeft,
-                          child: _LoginBrand(portrait: portrait, short: short),
+                          child: _LoginBrand(
+                            portrait: portrait,
+                            centered: portrait || desktop,
+                            short: short,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         ConstrainedBox(
@@ -183,63 +187,21 @@ class LoginLayout extends StatelessWidget {
 class _DesktopLoginArt extends StatelessWidget {
   const _DesktopLoginArt();
 
-  static const _asset = 'assets/brand/login-party.webp';
-  static const _aspect = 1.5;
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= constraints.maxHeight * _aspect;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRect(
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                child: Image.asset(
-                  _asset,
-                  fit: BoxFit.cover,
-                  color: const Color(0x66101630),
-                  colorBlendMode: BlendMode.srcATop,
-                  excludeFromSemantics: true,
-                ),
-              ),
-            ),
-            Center(
-              child: SizedBox(
-                width: math.min(
-                  constraints.maxWidth,
-                  constraints.maxHeight * _aspect,
-                ),
-                height: math.min(
-                  constraints.maxHeight,
-                  constraints.maxWidth / _aspect,
-                ),
-                child: ShaderMask(
-                  blendMode: BlendMode.dstIn,
-                  shaderCallback: LinearGradient(
-                    begin: wide ? Alignment.centerLeft : Alignment.topCenter,
-                    end: wide ? Alignment.centerRight : Alignment.bottomCenter,
-                    stops: const [0, 0.055, 0.945, 1],
-                    colors: const [
-                      Colors.transparent,
-                      Colors.white,
-                      Colors.white,
-                      Colors.transparent,
-                    ],
-                  ).createShader,
-                  child: Image.asset(
-                    _asset,
-                    key: const ValueKey('login-art'),
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                    filterQuality: FilterQuality.medium,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        final aspect = constraints.maxWidth / constraints.maxHeight;
+        final widescreen = aspect >= 1.5;
+        return Image.asset(
+          widescreen
+              ? 'assets/brand/login-party-wide.webp'
+              : 'assets/brand/login-party.webp',
+          key: const ValueKey('login-art'),
+          // A narrower window can trim the extension outside the original scene.
+          fit: widescreen ? BoxFit.fitHeight : BoxFit.contain,
+          excludeFromSemantics: true,
+          filterQuality: FilterQuality.medium,
         );
       },
     );
@@ -306,14 +268,19 @@ class _LoginPanel extends StatelessWidget {
 }
 
 class _LoginBrand extends StatelessWidget {
-  const _LoginBrand({required this.portrait, required this.short});
+  const _LoginBrand({
+    required this.portrait,
+    required this.centered,
+    required this.short,
+  });
 
   final bool portrait;
+  final bool centered;
   final bool short;
 
   @override
   Widget build(BuildContext context) {
-    final emblemSize = portrait ? 46.0 : (short ? 51.0 : 76.0);
+    final emblemSize = centered ? 46.0 : (short ? 51.0 : 76.0);
     final emblem = Image.asset(
       'assets/brand/emblem.png',
       key: const ValueKey('login-emblem'),
@@ -334,7 +301,7 @@ class _LoginBrand extends StatelessWidget {
             style: TextStyle(
               color: const Color(0xffffebbf),
               fontFamily: 'Crimson Text',
-              fontSize: portrait ? 38 : (short ? 40 : 56),
+              fontSize: portrait ? 38 : (short ? 40 : (centered ? 52 : 56)),
               fontWeight: FontWeight.w700,
               height: 1,
               shadows: const [
@@ -372,7 +339,7 @@ class _LoginBrand extends StatelessWidget {
         ],
       ),
     );
-    return portrait
+    return centered
         ? Column(children: [emblem, const SizedBox(height: 7), title])
         : Row(
             mainAxisSize: MainAxisSize.min,

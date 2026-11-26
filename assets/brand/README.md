@@ -10,3 +10,6 @@ Emblema de livro e dado e ilustração de entrada originais gerados para o proje
 
 - `login-party-portrait.webp` — adaptação vertical aprovada da mesma cena,
   com a mesa estendida para acomodar o formulário no celular.
+
+- `login-party-wide.webp` — adaptação panorâmica da ilustração de login
+  para PC, com a extensão das estantes, janelas e mesa nas laterais.
