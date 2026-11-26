@@ -5,6 +5,15 @@ enum HypothesisStatus {
 
   const HypothesisStatus(this.label);
   final String label;
+
+  String conclusionLabel({required bool hypothesis}) {
+    if (hypothesis) return label;
+    return switch (this) {
+      HypothesisStatus.open => 'Ativa',
+      HypothesisStatus.confirmed => 'Resolvida',
+      HypothesisStatus.refuted => 'Descartada',
+    };
+  }
 }
 
 class HypothesisResolution {

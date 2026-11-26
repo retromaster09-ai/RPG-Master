@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/chronicle_export.dart';
 import 'package:rpg_master_set/notebook_format.dart';
@@ -15,6 +16,45 @@ Future<Uint8List> _image(String hash) async => _pixel;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'envia PDF e PNG ao compartilhamento nativo quando solicitado',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      const channel = MethodChannel('rpg_master_set/chronicle_export');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final received = <MethodCall>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        received.add(call);
+        return true;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(channel, null);
+        debugDefaultTargetPlatformOverride = null;
+      });
+      await saveChronicleFile(
+        _pixel,
+        'cronicas.pdf',
+        'application/pdf',
+        action: ChronicleExportAction.share,
+      );
+      await saveChronicleFile(
+        _pixel,
+        'cronica.png',
+        'image/png',
+        action: ChronicleExportAction.share,
+      );
+      await saveChronicleFile(_pixel, 'cronica.png', 'image/png');
+      expect(received.map((call) => call.method), [
+        'shareFile',
+        'shareFile',
+        'saveFile',
+      ]);
+      expect(received[0].arguments['mimeType'], 'application/pdf');
+      expect(received[1].arguments['name'], 'cronica.png');
+    },
+  );
 
   test(
     'gera PDF com todas as crônicas e pagina um texto longo com imagens',

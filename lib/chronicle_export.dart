@@ -25,18 +25,23 @@ String chronicleFileName(String title, String extension) {
   return '${trimmed.isEmpty ? 'cronica' : trimmed}.$extension';
 }
 
+bool get canShareChronicleFile =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+enum ChronicleExportAction { save, share }
+
 Future<void> saveChronicleFile(
   Uint8List bytes,
   String name,
-  String mimeType,
-) async {
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+  String mimeType, {
+  ChronicleExportAction action = ChronicleExportAction.save,
+}) async {
+  if (canShareChronicleFile) {
     const android = MethodChannel('rpg_master_set/chronicle_export');
-    await android.invokeMethod<bool>('saveFile', {
-      'bytes': bytes,
-      'name': name,
-      'mimeType': mimeType,
-    });
+    await android.invokeMethod<bool>(
+      action == ChronicleExportAction.share ? 'shareFile' : 'saveFile',
+      {'bytes': bytes, 'name': name, 'mimeType': mimeType},
+    );
     return;
   }
   final file = files.XFile.fromData(bytes, name: name, mimeType: mimeType);

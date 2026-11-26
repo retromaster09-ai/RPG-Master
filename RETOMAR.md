@@ -34,6 +34,12 @@ hipóteses, com motivo e reabertura. O caderno usa `resolution` e
 `resolutionReason`, preservando o texto da nota e a resposta. O mesmo
 APK exporta o conjunto de crônicas em PDF e a crônica aberta em PNG.
 
+O 0.17.0-dev.20 deixa Ativas e Concluídas visíveis em Mistérios e pistas
+e usa a resolução existente para perguntas, pistas e hipóteses. No
+Android, PDF e PNG oferecem salvar ou compartilhar pelo menu do sistema.
+O provedor de arquivos concede leitura apenas do arquivo escolhido no
+cache de exportações.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

@@ -651,8 +651,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   final _search = TextEditingController();
   String? _category;
   bool _showCompletedMissions = false;
-  bool _onlyHypotheses = false;
-  bool _showClosedHypotheses = false;
+  bool _showClosedInvestigations = false;
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
   bool _readingWord = false;
@@ -715,8 +714,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       _search.clear();
       _category = null;
       _showCompletedMissions = false;
-      _onlyHypotheses = false;
-      _showClosedHypotheses = false;
+      _showClosedInvestigations = false;
       _tab = tab;
       if (_tab == _NotebookTab.private) {
         _privateNotes = widget.repository.readGmNotes(widget.campaign);
@@ -731,8 +729,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       _category = category;
       _search.clear();
       _showCompletedMissions = false;
-      _onlyHypotheses = false;
-      _showClosedHypotheses = false;
+      _showClosedInvestigations = false;
     });
   }
 
@@ -780,10 +777,41 @@ class _NotebookScreenState extends State<NotebookScreen>
     }
     setState(() => _exportingChronicles = true);
     final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Preparando arquivo…')),
-    );
     try {
+      final action = canShareChronicleFile
+          ? await showDialog<ChronicleExportAction>(
+              context: context,
+              builder: (context) => SimpleDialog(
+                title: Text(
+                  imageOf == null ? 'Exportar PDF' : 'Exportar imagem',
+                ),
+                children: [
+                  SimpleDialogOption(
+                    onPressed: () =>
+                        Navigator.pop(context, ChronicleExportAction.share),
+                    child: const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.share_outlined),
+                      title: Text('Compartilhar'),
+                    ),
+                  ),
+                  SimpleDialogOption(
+                    onPressed: () =>
+                        Navigator.pop(context, ChronicleExportAction.save),
+                    child: const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.save_alt),
+                      title: Text('Salvar no dispositivo'),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ChronicleExportAction.save;
+      if (!mounted || action == null) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Preparando arquivo…')),
+      );
       final images = <String, Future<Uint8List>>{};
       Future<Uint8List> readImage(String hash) => images.putIfAbsent(
         hash,
@@ -814,6 +842,7 @@ class _NotebookScreenState extends State<NotebookScreen>
         bytes,
         name,
         imageOf == null ? 'application/pdf' : 'image/png',
+        action: action,
       );
     } on FormatException catch (error) {
       if (mounted) {
@@ -851,7 +880,6 @@ class _NotebookScreenState extends State<NotebookScreen>
         initialCategory: _notebookSections.containsKey(_category)
             ? _category
             : null,
-        initialConfidence: _onlyHypotheses ? 'Hipótese' : null,
         onClose: () => setState(() => _editor = null),
         onSaved: () => setState(() => _editor = null),
       );
@@ -1042,17 +1070,20 @@ class _NotebookScreenState extends State<NotebookScreen>
     await _queueRecordChange(notebook, record, mission: plan);
   }
 
-  Future<void> _changeHypothesis(
+  Future<void> _changeInvestigation(
     Notebook notebook,
     CampaignRecord record,
   ) async {
     final current = record.resolution;
+    final hypothesis = record.confidence == 'Hipótese';
     final resolution = current.closed
         ? HypothesisResolution(reason: current.reason)
         : await showDialog<HypothesisResolution>(
             context: context,
-            builder: (_) =>
-                HypothesisConclusionDialog(initialReason: current.reason),
+            builder: (_) => InvestigationConclusionDialog(
+              initialReason: current.reason,
+              hypothesis: hypothesis,
+            ),
           );
     if (!mounted || resolution == null) return;
     final queued = await _queueRecordChange(
@@ -1063,14 +1094,17 @@ class _NotebookScreenState extends State<NotebookScreen>
     if (!mounted || !queued || !resolution.closed) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Hipótese ${resolution.status.label.toLowerCase()}.'),
+        content: Text(
+          hypothesis
+              ? 'Hipótese ${resolution.status.label.toLowerCase()}.'
+              : 'Conclusão registrada.',
+        ),
         action: SnackBarAction(
           label: 'Ver concluídas',
           onPressed: () {
             if (_category != 'Investigação') return;
             setState(() {
-              _onlyHypotheses = true;
-              _showClosedHypotheses = true;
+              _showClosedInvestigations = true;
             });
           },
         ),
@@ -1597,6 +1631,7 @@ class _NotebookScreenState extends State<NotebookScreen>
       return _sectionIndex(notebook, allDrafts);
     }
     final isMissionSection = _category == 'Missão';
+    final isInvestigationSection = _category == 'Investigação';
     final terms = removeDiacritics(_search.text.trim().toLowerCase())
         .split(RegExp(r'\s+'))
         .where((term) => term.isNotEmpty);
@@ -1612,11 +1647,8 @@ class _NotebookScreenState extends State<NotebookScreen>
       if (!isSession && (category ?? _uncategorizedView) != _category) {
         return false;
       }
-      final hypothesis =
-          category == 'Investigação' && text.confidence == 'Hipótese';
-      if (_onlyHypotheses
-          ? !hypothesis || resolution.closed != _showClosedHypotheses
-          : hypothesis && resolution.closed) {
+      if (isInvestigationSection &&
+          resolution.closed != _showClosedInvestigations) {
         return false;
       }
       if (isMissionSection &&
@@ -1631,7 +1663,7 @@ class _NotebookScreenState extends State<NotebookScreen>
           text.answer,
           text.confidence,
           category ?? '',
-          if (hypothesis && resolution.closed) resolution.reason,
+          if (isInvestigationSection && resolution.closed) resolution.reason,
           ...dates.map(sessionDateLabel),
           if (mission != null)
             for (final step in mission.steps) ...[step.title, step.details],
@@ -1693,27 +1725,33 @@ class _NotebookScreenState extends State<NotebookScreen>
     );
     final header = <Widget>[
       ..._syncNotices(),
-      if (isMissionSection)
+      if (isMissionSection || isInvestigationSection)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: _completionTabs(
-            _showCompletedMissions,
-            (value) => setState(() => _showCompletedMissions = value),
+            isMissionSection
+                ? _showCompletedMissions
+                : _showClosedInvestigations,
+            (value) => setState(() {
+              if (isMissionSection) {
+                _showCompletedMissions = value;
+              } else {
+                _showClosedInvestigations = value;
+              }
+            }),
           ),
         ),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if ((!isMissionSection || !_showCompletedMissions) &&
-              (!_onlyHypotheses || !_showClosedHypotheses))
+              (!isInvestigationSection || !_showClosedInvestigations))
             FilledButton.icon(
               onPressed: () => _edit(notebook),
               icon: const Icon(Icons.add),
               label: Text(
                 isSession
                     ? 'Nova crônica'
-                    : _onlyHypotheses
-                    ? 'Nova hipótese'
                     : isMissionSection
                     ? 'Nova missão'
                     : 'Novo registro',
@@ -1770,26 +1808,6 @@ class _NotebookScreenState extends State<NotebookScreen>
           onChanged: (_) => setState(() {}),
         ),
       ),
-      if (_category == 'Investigação')
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilterChip(
-            label: const Text('Só hipóteses'),
-            selected: _onlyHypotheses,
-            onSelected: (value) => setState(() {
-              _onlyHypotheses = value;
-              _showClosedHypotheses = false;
-            }),
-          ),
-        ),
-      if (_onlyHypotheses)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: _completionTabs(
-            _showClosedHypotheses,
-            (value) => setState(() => _showClosedHypotheses = value),
-          ),
-        ),
       for (final draft in drafts.values)
         Card(
           child: ListTile(
@@ -1807,9 +1825,12 @@ class _NotebookScreenState extends State<NotebookScreen>
                 }),
                 if ((draft.resolution ?? draft.original?.resolution)
                     case final conclusion?
-                    when conclusion.closed &&
-                        draft.text.confidence == 'Hipótese')
-                  HypothesisConclusion(resolution: conclusion, compact: true),
+                    when conclusion.closed && isInvestigationSection)
+                  InvestigationConclusion(
+                    resolution: conclusion,
+                    hypothesis: draft.text.confidence == 'Hipótese',
+                    compact: true,
+                  ),
                 if (draft.mission ?? draft.original?.mission
                     case final mission?) ...[
                   MissionSummary(plan: mission),
@@ -1850,10 +1871,10 @@ class _NotebookScreenState extends State<NotebookScreen>
                     ? (_showCompletedMissions
                           ? 'Nenhuma missão concluída.'
                           : 'Nenhuma missão ativa.')
-                    : _onlyHypotheses
-                    ? (_showClosedHypotheses
-                          ? 'Nenhuma hipótese concluída.'
-                          : 'Nenhuma hipótese ativa.')
+                    : isInvestigationSection
+                    ? (_showClosedInvestigations
+                          ? 'Nenhum registro concluído.'
+                          : 'Nenhum registro ativo.')
                     : 'Nenhum registro nesta seção.',
               ),
             ),
@@ -1861,9 +1882,7 @@ class _NotebookScreenState extends State<NotebookScreen>
         }
         final record = entries[index];
         final plan = record.mission;
-        final isHypothesis =
-            record.category == 'Investigação' &&
-            record.confidence == 'Hipótese';
+        final isHypothesis = record.confidence == 'Hipótese';
         final canChange =
             record.id != null && !_recordWrites.contains(record.id);
         final card = Card(
@@ -1911,15 +1930,20 @@ class _NotebookScreenState extends State<NotebookScreen>
                                   : null,
                             ),
                           ),
-                        if (isHypothesis)
+                        if (isInvestigationSection)
                           Tooltip(
                             message: record.resolution.closed
-                                ? 'Reabrir hipótese'
-                                : 'Concluir hipótese',
+                                ? (isHypothesis
+                                      ? 'Reabrir hipótese'
+                                      : 'Reabrir registro')
+                                : (isHypothesis
+                                      ? 'Concluir hipótese'
+                                      : 'Concluir registro'),
                             child: Checkbox(
                               value: record.resolution.closed,
                               onChanged: canChange
-                                  ? (_) => _changeHypothesis(notebook, record)
+                                  ? (_) =>
+                                        _changeInvestigation(notebook, record)
                                   : null,
                             ),
                           ),
@@ -1992,9 +2016,10 @@ class _NotebookScreenState extends State<NotebookScreen>
                     if (record.confidence case final confidence?
                         when !isHypothesis || !record.resolution.closed)
                       Text('Confiança · $confidence'),
-                    if (isHypothesis && record.resolution.closed)
-                      HypothesisConclusion(
+                    if (isInvestigationSection && record.resolution.closed)
+                      InvestigationConclusion(
                         resolution: record.resolution,
+                        hypothesis: isHypothesis,
                         compact: true,
                       ),
                     if (record.body.isNotEmpty)

@@ -8,7 +8,7 @@ confiança quando fizer sentido.
 | Seção | Como registrar |
 | --- | --- |
 | Objetivos e missões | Um cartão por objetivo, com caixa de conclusão, etapas opcionais e detalhes em cada etapa. O grupo pode concluir a missão mesmo com etapas opcionais em aberto. |
-| Mistérios e pistas | Uma pergunta, pista ou hipótese por cartão. Use a resposta para o que o grupo descobriu. Ative **Só hipóteses** para ver os registros marcados com confiança **Hipótese**. |
+| Mistérios e pistas | Uma pergunta, pista ou hipótese por cartão. Use a resposta para o que o grupo descobriu. As abas **Ativas** e **Concluídas** ficam disponíveis ao abrir a seção. |
 | Pessoas importantes | Nome e notas sobre a pessoa. |
 | Lugares importantes | Nome do local e o que o grupo encontrou lá. |
 | Relíquias, objetos e sinais | Nome, descrição e contexto da descoberta. |
@@ -22,14 +22,14 @@ cartão publicado e arraste para reorganizar. Ao reorganizar, os cartões que es
 fora da busca mantêm suas posições. Nas Crônicas, arrastar muda para
 ordem manual. No Mestre, o gesto reorganiza as notas dentro da seção.
 
-## Concluir hipóteses
+## Concluir registros de Mistérios e pistas
 
-Em **Mistérios e pistas → Só hipóteses**, alterne entre **Ativas** e
-**Concluídas**. Marque a caixa do cartão, escolha **Confirmada** ou
-**Refutada** e registre como a mesa chegou à conclusão. Desmarque a
-caixa em **Concluídas** para voltar às ativas. O motivo anterior fica
-disponível ao concluir novamente. A hipótese preserva seu texto e seu
-nível de confiança.
+Abra **Mistérios e pistas** e alterne entre **Ativas** e **Concluídas**.
+A caixa do cartão permite concluir uma pergunta, pista ou hipótese e
+registrar o motivo. Hipóteses têm os resultados **Confirmada** e
+**Refutada**. Os demais registros têm **Resolvida** e **Descartada**.
+Desmarque a caixa em **Concluídas** para reabrir. O motivo anterior
+fica disponível ao concluir novamente.
 
 ## Exportar crônicas
 
@@ -37,8 +37,9 @@ Em **Crônicas**, use o ícone de PDF no cabeçalho para exportar todas
 as crônicas publicadas. O PDF segue a ordem selecionada na aba, reúne
 as datas, o texto, as capas e as ilustrações e pagina o conteúdo longo.
 Abra uma crônica e toque no ícone de imagem para gerar um PNG da página
-completa. O Android abre o seletor do sistema para escolher onde guardar
-o arquivo. Se houver imagens, conecte-se para que elas sejam carregadas.
+completa. No Android, escolha **Compartilhar** para abrir o menu do sistema
+com os apps disponíveis, ou **Salvar no dispositivo** para escolher
+onde guardar o arquivo. Se houver imagens, conecte-se para que elas sejam carregadas.
 
 ## Capas e páginas de leitura
 

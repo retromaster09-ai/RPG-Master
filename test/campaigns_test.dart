@@ -359,7 +359,7 @@ void main() {
   });
 
   testWidgets(
-    'Word fica nas ferramentas e hipóteses ficam dentro de mistérios',
+    'Word fica nas ferramentas e as abas de mistérios aparecem ao abrir a seção',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 850));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -395,13 +395,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Pista'), findsOneWidget);
       expect(find.text('Teoria da ponte'), findsOneWidget);
-      await tester.tap(find.text('Só hipóteses'));
-      await tester.pumpAndSettle();
-      expect(find.text('Pista'), findsNothing);
-      expect(find.text('Teoria da ponte'), findsOneWidget);
-      await tester.tap(find.text('Nova hipótese'));
-      await tester.pumpAndSettle();
-      expect(find.text('Hipótese'), findsOneWidget);
+      expect(find.text('Só hipóteses'), findsNothing);
+      expect(find.text('Ativas'), findsOneWidget);
+      expect(find.text('Concluídas'), findsOneWidget);
+      expect(find.byTooltip('Concluir registro'), findsOneWidget);
+      expect(find.byTooltip('Concluir hipótese'), findsOneWidget);
     },
   );
 
@@ -433,8 +431,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mistérios e pistas'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Só hipóteses'));
-      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Concluir hipótese'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Conclusão da mesa'));
@@ -459,8 +455,60 @@ void main() {
       await tester.tap(find.text('Ativas'));
       await tester.pumpAndSettle();
       expect(find.text('Teoria da ponte'), findsOneWidget);
+      await tester.tap(find.byTooltip('Concluir registro'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Conclusão da mesa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Resolvida').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Concluir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pista'), findsNothing);
+      await tester.tap(find.text('Concluídas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pista'), findsOneWidget);
+      expect(find.text('Resolvida'), findsOneWidget);
     },
   );
+
+  testWidgets('oferece compartilhar ou salvar no PDF e na imagem da crônica', (
+    tester,
+  ) async {
+    final repository = _EditorRepository()
+      ..sessions = [
+        {
+          'id': 'session',
+          'title': 'Chegada à ponte',
+          'body': 'A mesa chegou.',
+          'category': 'Sessão',
+        },
+      ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Crônicas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Exportar todas as crônicas em PDF'));
+    await tester.pumpAndSettle();
+    expect(find.text('Compartilhar'), findsOneWidget);
+    expect(find.text('Salvar no dispositivo'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 110));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chegada à ponte'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Exportar crônica como imagem'));
+    await tester.pumpAndSettle();
+    expect(find.text('Compartilhar'), findsOneWidget);
+    expect(find.text('Salvar no dispositivo'), findsOneWidget);
+  });
 
   testWidgets('a busca encontra texto com acento dentro da seção', (
     tester,
@@ -964,6 +1012,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
   int saves = 0;
   bool trashed = false;
   MissionPlan? mission;
+  HypothesisResolution resolution = const HypothesisResolution();
   NotebookPresentation presentation = const NotebookPresentation();
   List<String>? reorderedIds;
   List<Map<String, Object>> sessions = const [];
@@ -981,6 +1030,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
           'body': body,
           'category': mission == null ? 'Investigação' : 'Missão',
           ...presentation.toJson(),
+          ...resolution.toJson(),
           if (mission case final plan?) ...plan.toJson(),
           if (trashed) 'deletedAt': '2026-11-26T00:00:00.000Z',
         },
@@ -1026,7 +1076,9 @@ class _EditorRepository extends Fake implements CampaignRepository {
     saves++;
     body = text.body;
     if (mission != null) this.mission = mission;
-    if (resolution != null) {
+    if (resolution != null && id == 'entry') {
+      this.resolution = resolution;
+    } else if (resolution != null) {
       sessions = [
         for (final entry in sessions)
           if (entry['id'] == id) {...entry, ...resolution.toJson()} else entry,

@@ -26,7 +26,6 @@ class NotebookEditor extends StatefulWidget {
     this.record,
     this.savedDraft,
     this.initialCategory,
-    this.initialConfidence,
   });
 
   final NotebookSync sync;
@@ -35,7 +34,6 @@ class NotebookEditor extends StatefulWidget {
   final CampaignRecord? record;
   final bool isSession;
   final String? initialCategory;
-  final String? initialConfidence;
   final VoidCallback onClose;
   final VoidCallback onSaved;
 
@@ -66,12 +64,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
   late var _baseRecord = widget.savedDraft?.original ?? widget.record;
   late final _original =
       _baseRecord?.text ??
-      (
-        title: '',
-        body: '',
-        answer: '',
-        confidence: widget.initialConfidence ?? 'Não se aplica',
-      );
+      (title: '', body: '', answer: '', confidence: 'Não se aplica');
   late final _initial = widget.savedDraft?.text ?? _original;
   late final _title = TextEditingController(text: _initial.title);
   late final _initialPresentation =
@@ -282,7 +275,7 @@ class _NotebookEditorState extends State<NotebookEditor> {
     text: _draft,
     dates: widget.isSession ? _dates : null,
     mission: _category == 'Missão' ? _mission : null,
-    resolution: _category == 'Investigação' && _confidence == 'Hipótese'
+    resolution: _category == 'Investigação'
         ? widget.savedDraft?.resolution
         : null,
     coverPng: _coverPng,
@@ -502,9 +495,6 @@ class _NotebookEditorState extends State<NotebookEditor> {
                       ? 'Nova crônica'
                       : _startingCategory == 'Missão'
                       ? 'Nova missão'
-                      : _startingCategory == 'Investigação' &&
-                            widget.initialConfidence == 'Hipótese'
-                      ? 'Nova hipótese'
                       : 'Novo registro')
                 : (widget.isSession ? 'Editar crônica' : 'Editar registro'),
           ),

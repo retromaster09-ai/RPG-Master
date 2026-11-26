@@ -778,6 +778,24 @@ void main() {
         .singleWhere((item) => item.id == hypothesisId);
     expect(reopened.resolution.closed, isFalse);
     expect(reopened.resolution.reason, conclusion.reason);
+    final notebookWithClue = await gmRepo.readNotebook(campaignId);
+    final activeClue = notebookWithClue.records.firstWhere(
+      (item) =>
+          item.category == 'Investigação' && item.confidence != 'Hipótese',
+    );
+    await gmRepo.saveNotebookRecord(
+      campaignId: campaignId,
+      notebook: notebookWithClue,
+      id: activeClue.id!,
+      category: 'Investigação',
+      original: activeClue,
+      text: activeClue.text,
+      resolution: conclusion,
+    );
+    final closedClue = (await playerRepo.readNotebook(campaignId)).records
+        .singleWhere((item) => item.id == activeClue.id);
+    expect(closedClue.resolution.sameAs(conclusion), isTrue);
+    expect(closedClue.text, activeClue.text);
   }, timeout: const Timeout(Duration(seconds: 65)));
 }
 

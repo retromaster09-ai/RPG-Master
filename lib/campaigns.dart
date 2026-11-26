@@ -1248,10 +1248,9 @@ Map<String, Object?> _mergeEntry(
       !resolution.sameAs(original.resolution) &&
       !resolution.sameAs(current.resolution)) {
     if (!original.resolution.sameAs(current.resolution) ||
-        current.confidence != 'Hipótese' ||
         current.category != 'Investigação') {
       throw NotebookConflict(
-        'Outra pessoa alterou a hipótese. Confira a conclusão antes de salvar.',
+        'Outra pessoa alterou a conclusão. Confira antes de salvar.',
         current: current,
       );
     }

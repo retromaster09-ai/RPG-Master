@@ -132,12 +132,13 @@ class NotebookPage extends StatelessWidget {
               repository: repository,
               campaignId: campaignId,
             ),
-            if (record.category == 'Investigação' &&
-                record.confidence == 'Hipótese' &&
-                record.resolution.closed)
+            if (record.category == 'Investigação' && record.resolution.closed)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
-                child: HypothesisConclusion(resolution: record.resolution),
+                child: InvestigationConclusion(
+                  resolution: record.resolution,
+                  hypothesis: record.confidence == 'Hipótese',
+                ),
               ),
             if (record.mission case final plan?) ...[
               const SizedBox(height: 18),
