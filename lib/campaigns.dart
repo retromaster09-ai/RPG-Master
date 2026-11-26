@@ -94,6 +94,7 @@ class CampaignRecord {
     this.category,
     this.confidence,
     this.dates = const [],
+    this.deletedAt,
   });
 
   factory CampaignRecord.fromJson(Map<String, dynamic> json) {
@@ -109,6 +110,7 @@ class CampaignRecord {
       answer: answer is String ? answer : '',
       category: category is String && category.isNotEmpty ? category : null,
       dates: readSessionDates(json['dates']),
+      deletedAt: json['deletedAt'] as String?,
       confidence:
           confidence is String &&
               confidence.isNotEmpty &&
@@ -125,6 +127,7 @@ class CampaignRecord {
   final String? category;
   final String? confidence;
   final List<String> dates;
+  final String? deletedAt;
 
   NotebookText get text => (
     title: title,
@@ -141,6 +144,7 @@ class CampaignRecord {
     'category': category,
     'confidence': confidence,
     'dates': dates,
+    'deletedAt': deletedAt,
   };
 }
 
@@ -167,6 +171,7 @@ class Notebook {
   const Notebook._(
     this.records,
     this.sessions,
+    this.trash,
     this._entries,
     this._revision,
     this._epoch,
@@ -182,13 +187,17 @@ class Notebook {
     final entries = <Map<String, dynamic>>[];
     final records = <CampaignRecord>[];
     final sessions = <CampaignRecord>[];
+    final trash = <CampaignRecord>[];
     for (final item in data['entries'] as List) {
       if (item is! Map<String, dynamic>) {
         throw const FormatException('Registro do caderno inválido.');
       }
       entries.add(Map.unmodifiable(item));
-      if (item['deletedAt'] != null) continue;
       final record = CampaignRecord.fromJson(item);
+      if (record.deletedAt != null) {
+        trash.add(record);
+        continue;
+      }
       if (record.title.isEmpty &&
           record.body.isEmpty &&
           record.answer.isEmpty) {
@@ -199,6 +208,7 @@ class Notebook {
     return Notebook._(
       List.unmodifiable(records),
       List.unmodifiable(sessions),
+      List.unmodifiable(trash),
       List.unmodifiable(entries),
       data['revision'] as int,
       data['epoch'] as int,
@@ -207,6 +217,7 @@ class Notebook {
 
   final List<CampaignRecord> records;
   final List<CampaignRecord> sessions;
+  final List<CampaignRecord> trash;
   final List<Map<String, dynamic>> _entries;
   final int _revision;
   final int _epoch;
@@ -270,6 +281,7 @@ class GmNote {
 
   String get id => _row['id'] as String;
   int get revision => _row['revision'] as int;
+  bool get isTrashed => _row['deleted_at'] != null;
 
   Map<String, dynamic> get _presentation =>
       _row['presentation'] as Map<String, dynamic>? ?? const {};
@@ -515,7 +527,63 @@ class CampaignRepository {
     );
   }
 
-  Future<List<GmNote>> readGmNotes(Campaign campaign) async {
+  Future<void> setNotebookTrash(
+    String campaignId,
+    Notebook notebook,
+    CampaignRecord record, {
+    required bool trashed,
+  }) async {
+    final account = _client.auth.currentUser?.id;
+    final deletionTime = trashed
+        ? DateTime.now().toUtc().toIso8601String()
+        : null;
+    var latest = notebook;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      // Read the latest copy so the operation never replaces another person's text.
+      latest = await readNotebook(campaignId, known: latest);
+      if (latest.epoch != notebook.epoch) {
+        throw const NotebookConflict(
+          'A campanha mudou. Atualize antes de tentar novamente.',
+        );
+      }
+      if (_client.auth.currentUser?.id != account) {
+        throw const AuthException('A conta mudou durante o envio.');
+      }
+      final entries = [...latest._entries];
+      final index = entries.indexWhere((entry) => entry['id'] == record.id);
+      if (record.id == null || index == -1) {
+        throw const NotebookConflict(
+          'Este registro não está mais na campanha.',
+        );
+      }
+      final previous = entries[index]['deletedAt'];
+      if ((previous != null) == trashed) return;
+      if (previous != record.deletedAt) {
+        throw const NotebookConflict(
+          'Este registro mudou. Atualize antes de tentar novamente.',
+        );
+      }
+      entries[index] = {...entries[index], 'deletedAt': deletionTime};
+      final revision = await _client.rpc<int?>(
+        'rpg_try_save_notebook_v3',
+        params: {
+          'p_campaign': campaignId,
+          'p_expected': latest._revision,
+          'p_epoch': latest._epoch,
+          'p_entries': entries,
+        },
+      );
+      if (revision != null) return;
+    }
+    throw const NotebookConflict(
+      'O caderno continua mudando. Tente novamente.',
+    );
+  }
+
+  Future<List<GmNote>> readGmNotes(
+    Campaign campaign, {
+    bool trashed = false,
+  }) async {
     _requireCampaignOwner(campaign);
     // O Supabase deve autorizar esta RPC mesmo quando chamada fora do app.
     final rows = await _client.rpc<List<dynamic>>(
@@ -524,9 +592,31 @@ class CampaignRepository {
     );
     return rows
         .cast<Map<String, dynamic>>()
-        .where((row) => row['deleted_at'] == null)
         .map(GmNote._)
+        .where((note) => note.isTrashed == trashed)
         .toList(growable: false);
+  }
+
+  Future<void> setGmTrash(
+    Campaign campaign,
+    GmNote note, {
+    required bool trashed,
+  }) async {
+    _requireCampaignOwner(campaign);
+    final revision = await _client.rpc<int?>(
+      'rpg_try_set_gm_trash',
+      params: {
+        'p_campaign': campaign.id,
+        'p_id': note.id,
+        'p_expected': note.revision,
+        'p_deleted': trashed,
+      },
+    );
+    if (revision != null) return;
+    final updated = await readGmNotes(campaign, trashed: trashed);
+    if (!updated.any((item) => item.id == note.id)) {
+      throw const GmNoteConflict();
+    }
   }
 
   Future<void> saveGmNote({

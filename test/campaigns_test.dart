@@ -399,6 +399,41 @@ void main() {
     );
   });
 
+  testWidgets('move um registro para a lixeira e restaura pelo cabeçalho', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(550, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _EditorRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: false,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Opções do registro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover para a lixeira'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsNothing);
+    await tester.tap(find.byTooltip('Lixeira'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsOneWidget);
+    await tester.tap(find.byTooltip('Restaurar'));
+    await tester.pumpAndSettle();
+    expect(find.text('A lixeira está vazia.'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Pista'), findsOneWidget);
+  });
+
   test('pede a revisão completa pela RPC v3 e separa as crônicas', () async {
     final client = SupabaseClient(
       'https://example.invalid',
@@ -499,6 +534,7 @@ class _EditorRepository extends Fake implements CampaignRepository {
   bool online = true;
   int epoch = 0;
   int saves = 0;
+  bool trashed = false;
   List<Map<String, Object>> sessions = const [];
 
   @override
@@ -513,10 +549,21 @@ class _EditorRepository extends Fake implements CampaignRepository {
           'title': 'Pista',
           'body': body,
           'category': 'Investigação',
+          if (trashed) 'deletedAt': '2026-11-26T00:00:00.000Z',
         },
         ...sessions,
       ],
     });
+  }
+
+  @override
+  Future<void> setNotebookTrash(
+    String campaignId,
+    Notebook notebook,
+    CampaignRecord record, {
+    required bool trashed,
+  }) async {
+    this.trashed = trashed;
   }
 
   @override

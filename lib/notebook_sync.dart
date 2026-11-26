@@ -208,6 +208,11 @@ class NotebookSync extends ChangeNotifier {
     return _refreshing ??= _sync().whenComplete(() => _refreshing = null);
   }
 
+  Future<void> refreshAfterChange() async {
+    await _refreshing;
+    await refresh();
+  }
+
   Future<void> _sync() async {
     try {
       final previous = _notebook;

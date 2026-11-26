@@ -16,6 +16,7 @@ import 'notebook_editor.dart';
 import 'notebook_sync.dart';
 import 'offline_storage.dart';
 import 'session_dates.dart';
+import 'trash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -597,6 +598,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   final _search = TextEditingController();
   String? _category;
   bool _recentFirst = true;
+  bool _trashBusy = false;
 
   @override
   void initState() {
@@ -657,9 +659,9 @@ class _NotebookScreenState extends State<NotebookScreen>
 
   void _refresh() {
     if (_tab == _NotebookTab.private) {
-      setState(
-        () => _privateNotes = widget.repository.readGmNotes(widget.campaign),
-      );
+      setState(() {
+        _privateNotes = widget.repository.readGmNotes(widget.campaign);
+      });
     } else {
       unawaited(_sync.refresh());
     }
@@ -683,6 +685,86 @@ class _NotebookScreenState extends State<NotebookScreen>
     });
   }
 
+  void _openTrash() {
+    final private = _tab == _NotebookTab.private;
+    setState(() {
+      _editor = private
+          ? TrashScreen<GmNote>(
+              title: 'Lixeira do mestre',
+              load: () => widget.repository
+                  .readGmNotes(widget.campaign, trashed: true)
+                  .timeout(notebookRequestTimeout),
+              itemTitle: (note) => note.text.title,
+              itemCategory: (note) => note.text.kind == GmNoteKind.note
+                  ? note.text.section.label
+                  : note.text.kind.label,
+              restore: (note) => widget.repository
+                  .setGmTrash(widget.campaign, note, trashed: false)
+                  .timeout(notebookRequestTimeout),
+              onBack: _closeGmEditor,
+            )
+          : TrashScreen<CampaignRecord>(
+              title: 'Lixeira',
+              load: () async {
+                await _sync.refreshAfterChange();
+                final notebook = _sync.notebook;
+                if (notebook == null) {
+                  throw NotebookConflict(
+                    _sync.error ?? 'Não foi possível abrir o caderno.',
+                  );
+                }
+                return notebook.trash;
+              },
+              itemTitle: (record) => record.title,
+              itemCategory: (record) =>
+                  record.category == 'Sessão' ? 'Crônica' : record.category,
+              restore: (record) async {
+                final notebook = _sync.notebook;
+                if (notebook == null) {
+                  throw const NotebookConflict(
+                    'Atualize o caderno e tente novamente.',
+                  );
+                }
+                await _setRecordTrash(notebook, record, trashed: false);
+              },
+              onBack: () => setState(() => _editor = null),
+            );
+    });
+  }
+
+  Future<void> _setRecordTrash(
+    Notebook notebook,
+    CampaignRecord record, {
+    required bool trashed,
+  }) => widget.repository
+      .setNotebookTrash(widget.campaign.id, notebook, record, trashed: trashed)
+      .timeout(notebookRequestTimeout);
+
+  Future<void> _moveToTrash(
+    String title,
+    Future<void> Function() submit,
+    VoidCallback onSuccess,
+  ) async {
+    if (_trashBusy) return;
+    setState(() => _trashBusy = true);
+    try {
+      if (!await confirmMoveToTrash(context, title) || !mounted) return;
+      await submit();
+      if (!mounted) return;
+      onSuccess();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Movido para a lixeira.')));
+    } on Exception catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(trashMessage(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _trashBusy = false);
+    }
+  }
+
   void _openGmNote(GmNote note) {
     setState(() {
       _editor = GmNotePage(
@@ -691,6 +773,13 @@ class _NotebookScreenState extends State<NotebookScreen>
         note: note,
         onBack: _closeGmEditor,
         onEdit: () => _editGmNote(note),
+        onTrash: () => _moveToTrash(
+          note.text.title,
+          () => widget.repository
+              .setGmTrash(widget.campaign, note, trashed: true)
+              .timeout(notebookRequestTimeout),
+          _closeGmEditor,
+        ),
       );
     });
   }
@@ -995,6 +1084,25 @@ class _NotebookScreenState extends State<NotebookScreen>
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Editar',
                       ),
+                    if (record.id != null)
+                      PopupMenuButton<bool>(
+                        enabled: !_trashBusy,
+                        tooltip: 'Opções do registro',
+                        onSelected: (_) => _moveToTrash(record.title, () async {
+                          await _setRecordTrash(
+                            notebook,
+                            record,
+                            trashed: true,
+                          );
+                          await _sync.refreshAfterChange();
+                        }, () {}),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: true,
+                            child: Text('Mover para a lixeira'),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
                 if (isSession && record.dates.isNotEmpty)
@@ -1047,6 +1155,13 @@ class _NotebookScreenState extends State<NotebookScreen>
                   );
                 }),
               ),
+            IconButton(
+              onPressed: _trashBusy ? null : _openTrash,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: _tab == _NotebookTab.private
+                  ? 'Lixeira do mestre'
+                  : 'Lixeira',
+            ),
             IconButton(
               onPressed: _refresh,
               icon: const Icon(Icons.refresh),

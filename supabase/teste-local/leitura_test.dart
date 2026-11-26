@@ -234,6 +234,25 @@ void main() {
         ),
       ),
     );
+    await playerRepo.setNotebookTrash(
+      campaignId,
+      anotherSession,
+      anotherSession.sessions.single,
+      trashed: true,
+    );
+    final sharedTrash = await gmRepo.readNotebook(campaignId);
+    expect(sharedTrash.sessions, isEmpty);
+    expect(sharedTrash.trash.single.dates, sessionDates);
+    await playerRepo.setNotebookTrash(
+      campaignId,
+      sharedTrash,
+      sharedTrash.trash.single,
+      trashed: false,
+    );
+    final untrashed = await gmRepo.readNotebook(campaignId);
+    expect(untrashed.trash, isEmpty);
+    expect(untrashed.sessions.single.dates, sessionDates);
+
     final legacy = (await gmRepo.readGmNotes(campaign)).single;
     expect(legacy.text.title, 'Uma nota privada de teste');
     expect(legacy.text.kind, GmNoteKind.note);
@@ -290,10 +309,38 @@ void main() {
       ),
       throwsA(isA<GmNoteConflict>()),
     );
+    await gmRepo.setGmTrash(campaign, updated, trashed: true);
+    await gmRepo.setGmTrash(campaign, updated, trashed: true);
+    final gmTrash = await gmRepo.readGmNotes(campaign, trashed: true);
+    expect(gmTrash.single.id, updated.id);
+    expect(
+      (await gmRepo.readGmNotes(campaign)).any((item) => item.id == updated.id),
+      isFalse,
+    );
+    await expectLater(
+      player.rpc<int?>(
+        'rpg_try_set_gm_trash',
+        params: {
+          ...memberArgs,
+          'p_id': updated.id,
+          'p_expected': gmTrash.single.revision,
+          'p_deleted': false,
+        },
+      ),
+      throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
     await expectLater(playerRepo.readGmNotes(campaign), throwsStateError);
     await expectLater(
       player.rpc<List<dynamic>>('rpg_gm_list_v2', params: memberArgs),
       throwsA(isA<PostgrestException>().having((e) => e.code, 'code', '42501')),
+    );
+    await gmRepo.setGmTrash(campaign, gmTrash.single, trashed: false);
+    expect((await gmRepo.readGmNotes(campaign, trashed: true)), isEmpty);
+    expect(
+      (await gmRepo.readGmNotes(campaign))
+          .singleWhere((item) => item.id == updated.id)
+          .text,
+      updated.text,
     );
     final filteredRows = await player
         .from('rpg_gm_notes')

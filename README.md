@@ -85,6 +85,11 @@ primeiro as sessões mais recentes. O botão de ordenação inverte a ordem.
 Crônicas sem data aparecem no fim. As datas também entram nos rascunhos
 locais e seguem as regras de revisão da sincronização.
 
+No **Caderno** ou nas **Crônicas**, abra **Opções do registro → Mover para
+a lixeira**. O ícone **Lixeira** no topo abre a lista e permite restaurar.
+Na aba **Mestre**, a página privada tem seu próprio botão para mover, e o
+topo da aba abre a lixeira privada. Mover e restaurar precisam de conexão.
+
 Na aba **Mestre**, o criador da campanha pode criar e editar notas
 privadas em **Ideias**, **Cenas** e **Bastidores**. O app usa a revisão
 de cada nota para impedir que duas edições se sobrescrevam. O título,

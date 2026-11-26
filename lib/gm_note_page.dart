@@ -12,6 +12,7 @@ class GmNotePage extends StatefulWidget {
     required this.note,
     required this.onBack,
     required this.onEdit,
+    required this.onTrash,
   });
 
   final CampaignRepository repository;
@@ -19,6 +20,7 @@ class GmNotePage extends StatefulWidget {
   final GmNote note;
   final VoidCallback onBack;
   final VoidCallback onEdit;
+  final VoidCallback onTrash;
 
   @override
   State<GmNotePage> createState() => _GmNotePageState();
@@ -48,6 +50,11 @@ class _GmNotePageState extends State<GmNotePage> {
               onPressed: widget.onEdit,
               icon: const Icon(Icons.edit_outlined),
               tooltip: 'Editar página',
+            ),
+            IconButton(
+              onPressed: widget.onTrash,
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Mover para a lixeira',
             ),
           ],
         ),

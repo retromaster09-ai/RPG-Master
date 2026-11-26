@@ -73,7 +73,7 @@ O [levantamento das funções do app anterior](PARIDADE.md) registra o que
 falta na reconstrução e a ordem proposta. O `0.17.0-dev.5` implementa
 cadastro por usuário e senha, criação de mesa, entrada por código ou convite
 e consulta de participantes. A próxima etapa do uso diário do caderno
-inclui organização manual e lixeira com restauração.
+inclui organização manual e duplicação.
 
 O `0.17.0-dev.6` guarda localmente a lista de campanhas, a última revisão
 do caderno compartilhado e os rascunhos de texto. A chave é separada por
@@ -104,6 +104,14 @@ de fuso na exibição. O app ordena pela primeira data de cada crônica, com
 opção de inverter e crônicas sem data no fim. A fila local também guarda as
 datas. Alterações concorrentes nesse campo vão para **Revisar edição**.
 O recurso usa as RPCs já presentes no projeto de teste.
+
+O `0.17.0-dev.9` recupera mover para a lixeira e restaurar. O Caderno e as
+Crônicas usam uma lixeira compartilhada, e a aba Mestre abre sua lixeira
+privada. Alterar o estado exige conexão nesta etapa. No caderno, a operação
+preserva os campos da revisão mais recente e confere a geração da campanha.
+Na área privada, a migração `20261126090345_rpg_try_set_gm_trash` delega à
+função legada que restringe o acesso ao criador da campanha. Foi aplicada
+ao projeto de teste. Exclusão definitiva ainda está pendente.
 
 A criação e edição de registros e crônicas usa `rpg_try_save_notebook_v3`,
 que delega a gravação à função original e sinaliza revisões desatualizadas
