@@ -111,6 +111,16 @@ No PC, campanhas e seções ilustradas do caderno usam grades, as abas ficam
 na navegação lateral e os editores têm largura máxima de leitura. O filtro
 **Próxima sessão** continua sendo uma seleção das notas marcadas no roteiro.
 
+## Versão 0.17.0-dev.29 para PC
+
+O endereço do lançador inclui a versão do pacote. Arquivos locais são
+servidos com `Cache-Control: no-store` e a edição web não registra um
+service worker. A origem local continua `127.0.0.1:8142` para preservar
+a sessão e os rascunhos. Se a porta está ocupada por um lançamento
+anterior, o executável informa a versão em execução quando identificável.
+A versão aparece em **Suas campanhas**. Compile o pacote com
+`tools/pc/build-web.sh`. O APK Android recomendado continua no dev.28.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

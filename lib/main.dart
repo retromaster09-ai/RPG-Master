@@ -589,6 +589,16 @@ class _CampaignScreenState extends State<CampaignScreen> {
       appBar: AppBar(
         title: const Text('Suas campanhas'),
         actions: [
+          if (const String.fromEnvironment('RPG_APP_VERSION').isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Versão ${const String.fromEnvironment('RPG_APP_VERSION')}',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+            ),
           IconButton(
             onPressed: () => setState(() => _accountOpen = true),
             icon: const Icon(Icons.manage_accounts_outlined),

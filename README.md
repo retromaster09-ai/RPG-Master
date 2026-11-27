@@ -37,15 +37,16 @@ distribuição, configure sua assinatura e guarde a chave em local privado.
 
 No Windows de 64 bits, extraia o ZIP inteiro e abra
 **Abrir RPG Master Set.exe**. O executável abre a edição web no navegador.
-A janela que inicia o app serve os arquivos em `http://127.0.0.1:8142/`
-e precisa ficar aberta enquanto o app estiver em uso. A edição de teste
-se conecta ao mesmo projeto que o APK de teste.
+O lançador mostra a versão, abre um endereço diferente para cada edição e
+usa a mesma origem local para manter sessão e rascunhos. A janela precisa
+ficar aberta enquanto o app estiver em uso. Ao atualizar, feche a janela
+do lançador anterior antes de abrir a nova. A tela **Suas campanhas**
+mostra o número da versão.
 
-Para refazer o pacote, compile a edição web com
-`flutter build web --release --no-web-resources-cdn` e os mesmos
-parâmetros `--dart-define` do APK. Copie o conteúdo de `build/web` para a
-pasta `web` do pacote. Compile `tools/pc/main.go` com o Go para Windows
-amd64 e coloque o executável ao lado dessa pasta.
+Para refazer o pacote, execute `tools/pc/build-web.sh` na raiz do projeto
+com os mesmos parâmetros `--dart-define` do APK. Copie o conteúdo de
+`build/web` para a pasta `web` do pacote. Compile `tools/pc/main.go` com
+o Go para Windows amd64 e coloque o executável ao lado dessa pasta.
 
 ## Montar uma mesa no app
 

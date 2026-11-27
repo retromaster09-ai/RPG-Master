@@ -1,7 +1,7 @@
 name: rpg_master_set
 description: Caderno colaborativo e roteiro privado de campanha.
 publish_to: none
-version: 0.17.0-dev.28+47
+version: 0.17.0-dev.29+48
 
 environment:
   sdk: ^3.14.0
