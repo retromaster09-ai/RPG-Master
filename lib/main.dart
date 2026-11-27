@@ -1513,39 +1513,60 @@ class _NotebookScreenState extends State<NotebookScreen>
         onReorderItem: (from, to) => _dropGmCard(notes, from, to),
         itemBuilder: (context, index) {
           final note = notes[index];
+          final text = note.text;
+          void open() => _openGmNote(note);
           return ReorderableDelayedDragStartListener(
             key: ValueKey(note.id),
             index: index,
             enabled: !_trashBusy && !_gmFiltered && notes.length > 1,
             child: Card(
-              child: ListTile(
-                title: Text(note.text.title),
-                subtitle: note.text.body.isEmpty
-                    ? null
-                    : Text(
-                        note.text.body,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (text.coverHash case final hash?)
+                    InkWell(
+                      onTap: open,
+                      child: AspectRatio(
+                        aspectRatio: notebookCoverAspectRatio,
+                        child: NotebookCoverImage.private(
+                          repository: widget.repository,
+                          campaign: widget.campaign,
+                          hash: hash,
+                          layout: note.presentation.cover,
+                        ),
                       ),
-                trailing: PopupMenuButton<_RecordAction>(
-                  enabled: !_trashBusy,
-                  tooltip: 'Opções da nota',
-                  onSelected: (_) => _duplicate(
-                    (id) => widget.repository.duplicateGmNote(
-                      widget.campaign,
-                      note,
-                      id,
                     ),
-                    _closeGmEditor,
+                  ListTile(
+                    title: Text(text.title),
+                    subtitle: text.body.isEmpty
+                        ? null
+                        : Text(
+                            text.body,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                    trailing: PopupMenuButton<_RecordAction>(
+                      enabled: !_trashBusy,
+                      tooltip: 'Opções da nota',
+                      onSelected: (_) => _duplicate(
+                        (id) => widget.repository.duplicateGmNote(
+                          widget.campaign,
+                          note,
+                          id,
+                        ),
+                        _closeGmEditor,
+                      ),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: _RecordAction.duplicate,
+                          child: Text('Duplicar'),
+                        ),
+                      ],
+                    ),
+                    onTap: open,
                   ),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: _RecordAction.duplicate,
-                      child: Text('Duplicar'),
-                    ),
-                  ],
-                ),
-                onTap: () => _openGmNote(note),
+                ],
               ),
             ),
           );

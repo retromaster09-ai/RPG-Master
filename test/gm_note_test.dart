@@ -1,13 +1,50 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:rpg_master_set/campaigns.dart';
 import 'package:rpg_master_set/notebook_format.dart';
+import 'package:rpg_master_set/notebook_page.dart';
+import 'package:rpg_master_set/main.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  testWidgets('mostra a capa no cartão do Mestre pelo armazenamento privado', (
+    tester,
+  ) async {
+    final hash = List.filled(64, 'a').join();
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAD0lEQVR4nGM0Cq5gYGAAAAS5AP+m9miSAAAAAElFTkSuQmCC',
+    );
+    const campaign = Campaign(id: 'campaign', name: 'Mesa', ownerId: 'owner');
+    final repository = _PrivateCoverRepository([_PrivateCoverNote(hash)], png);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotebookScreen(
+          campaign: campaign,
+          repository: repository,
+          isOwner: true,
+          onBack: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mestre'));
+    await tester.pumpAndSettle();
+
+    final cover = find.byType(NotebookCoverImage);
+    expect(cover, findsOneWidget);
+    expect(tester.widget<NotebookCoverImage>(cover).layout.zoom, 1.5);
+    expect(repository.requested, [(campaign.id, hash)]);
+    await tester.tap(cover);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Editar página'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   test(
     'edita a apresentação privada e conserva os metadados legados',
     () async {
@@ -106,5 +143,58 @@ void main() {
       expect(saved.presentation.pictures.single.displayedHash, cutoutHash);
       expect(saved.preparation.tags, 'relíquia');
     },
+  );
+}
+
+class _PrivateCoverRepository extends Fake implements CampaignRepository {
+  _PrivateCoverRepository(this.notes, this.bytes);
+
+  final List<GmNote> notes;
+  final Uint8List bytes;
+  final requested = <(String, String)>[];
+
+  @override
+  Future<Notebook> readNotebook(String campaignId, {Notebook? known}) async =>
+      Notebook.fromRpc({'entries': [], 'revision': 0, 'epoch': 0});
+
+  @override
+  Future<List<GmNote>> readGmNotes(
+    Campaign campaign, {
+    bool trashed = false,
+  }) async => notes;
+
+  @override
+  Future<Uint8List> readGmCover(Campaign campaign, String hash) async {
+    requested.add((campaign.id, hash));
+    return bytes;
+  }
+}
+
+class _PrivateCoverNote extends Fake implements GmNote {
+  _PrivateCoverNote(this.hash);
+
+  final String hash;
+
+  @override
+  String get id => 'note';
+
+  @override
+  GmNoteText get text => (
+    title: 'Castelo',
+    body: '',
+    section: GmSection.scene,
+    kind: GmNoteKind.character,
+    coverHash: hash,
+  );
+
+  @override
+  GmPreparation get preparation => emptyGmPreparation;
+
+  @override
+  int? get orderIndex => null;
+
+  @override
+  NotebookPresentation get presentation => const NotebookPresentation(
+    cover: CampaignCoverLayout(fill: true, zoom: 1.5),
   );
 }

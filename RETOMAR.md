@@ -87,6 +87,12 @@ O Android tem sons opcionais no login. O ícone de alto-falante habilita
 um toque de cristal e um acorde ao entrar, com preferência local.
 O bloqueio de capturas foi descartado por decisão do mestre.
 
+## Versão 0.17.0-dev.27
+
+A lista do Mestre mostra as capas nos cartões de notas e páginas,
+com o enquadramento salvo e carregamento pelo Storage privado.
+A próxima etapa do caderno é a interface de exclusão definitiva e reset.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android
