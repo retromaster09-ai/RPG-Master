@@ -3,6 +3,9 @@ package com.rpgmaster.recovery.rpg_master_set
 import android.app.Activity
 import android.content.ClipData
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.SoundPool
+import android.os.SystemClock
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -21,8 +24,49 @@ class MainActivity : FlutterActivity() {
 
     private var pendingExport: PendingExport? = null
 
+    private var loginSoundPool: SoundPool? = null
+    private var lastLoginTap = -100L
+
+    private fun configureLoginAudio(engine: FlutterEngine) {
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val pool = SoundPool.Builder().setMaxStreams(4).setAudioAttributes(attributes).build()
+        loginSoundPool = pool
+        val typing = pool.load(this, R.raw.login_crystal, 1)
+        val entering = pool.load(this, R.raw.login_enter, 1)
+        MethodChannel(engine.dartExecutor.binaryMessenger, "rpg_master_set/login_audio")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "typing" -> {
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - lastLoginTap >= 58L) {
+                            lastLoginTap = now
+                            pool.play(typing, 1f, 1f, 1, 0, 1f)
+                        }
+                    }
+                    "enter" -> pool.play(entering, 1f, 1f, 1, 0, 1f)
+                    else -> {
+                        result.notImplemented()
+                        return@setMethodCallHandler
+                    }
+                }
+                result.success(null)
+            }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "rpg_master_set/login_audio")
+            .setMethodCallHandler(null)
+        loginSoundPool?.release()
+        loginSoundPool = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        configureLoginAudio(flutterEngine)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "rpg_master_set/chronicle_export",

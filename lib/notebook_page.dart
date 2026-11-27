@@ -19,10 +19,21 @@ class NotebookCoverImage extends StatefulWidget {
     required this.hash,
     this.layout = const CampaignCoverLayout(fill: false),
     this.pictureLayout,
-  });
+  }) : privateCampaign = null;
+
+  NotebookCoverImage.private({
+    super.key,
+    required this.repository,
+    required Campaign campaign,
+    required this.hash,
+    this.layout = const CampaignCoverLayout(fill: false),
+    this.pictureLayout,
+  }) : privateCampaign = campaign,
+       campaignId = campaign.id;
 
   final CampaignRepository repository;
   final String campaignId;
+  final Campaign? privateCampaign;
   final String hash;
   final CampaignCoverLayout layout;
   final PictureLayout? pictureLayout;
@@ -34,15 +45,18 @@ class NotebookCoverImage extends StatefulWidget {
 class _NotebookCoverImageState extends State<NotebookCoverImage> {
   late Future<Uint8List> _image = _load();
 
-  Future<Uint8List> _load() =>
-      widget.repository.readNotebookCover(widget.campaignId, widget.hash);
+  Future<Uint8List> _load() => switch (widget.privateCampaign) {
+    final campaign? => widget.repository.readGmCover(campaign, widget.hash),
+    null => widget.repository.readNotebookCover(widget.campaignId, widget.hash),
+  };
 
   @override
   void didUpdateWidget(NotebookCoverImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.hash != widget.hash ||
         oldWidget.campaignId != widget.campaignId ||
-        oldWidget.repository != widget.repository) {
+        oldWidget.repository != widget.repository ||
+        oldWidget.privateCampaign?.ownerId != widget.privateCampaign?.ownerId) {
       _image = _load();
     }
   }
@@ -126,7 +140,7 @@ class NotebookPage extends StatelessWidget {
                   ),
                 ),
               ),
-            _ReadingSheet(
+            NotebookReadingSheet(
               record: record,
               theme: theme,
               repository: repository,
@@ -152,18 +166,21 @@ class NotebookPage extends StatelessWidget {
   }
 }
 
-class _ReadingSheet extends StatelessWidget {
-  const _ReadingSheet({
+class NotebookReadingSheet extends StatelessWidget {
+  const NotebookReadingSheet({
+    super.key,
     required this.record,
     required this.theme,
     required this.repository,
     required this.campaignId,
+    this.privateCampaign,
   });
 
   final CampaignRecord record;
   final ThemeData theme;
   final CampaignRepository repository;
   final String campaignId;
+  final Campaign? privateCampaign;
 
   List<Widget> _body(TextStyle? style, bool lightPaper) {
     final presentation = record.presentation;
@@ -220,12 +237,20 @@ class _ReadingSheet extends StatelessWidget {
         if (picture.displayedHash case final hash?)
           SizedBox(
             height: notebookPictureHeight,
-            child: NotebookCoverImage(
-              repository: repository,
-              campaignId: campaignId,
-              hash: hash,
-              pictureLayout: picture.layout,
-            ),
+            child: switch (privateCampaign) {
+              final campaign? => NotebookCoverImage.private(
+                repository: repository,
+                campaign: campaign,
+                hash: hash,
+                pictureLayout: picture.layout,
+              ),
+              null => NotebookCoverImage(
+                repository: repository,
+                campaignId: campaignId,
+                hash: hash,
+                pictureLayout: picture.layout,
+              ),
+            },
           ),
         if (picture.caption.isNotEmpty)
           Text(

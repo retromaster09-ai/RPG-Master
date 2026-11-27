@@ -1,8 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:material_ui/material_ui.dart';
 
 import 'campaigns.dart';
+import 'notebook_page.dart';
 
 class GmNotePage extends StatefulWidget {
   const GmNotePage({
@@ -27,15 +26,11 @@ class GmNotePage extends StatefulWidget {
 }
 
 class _GmNotePageState extends State<GmNotePage> {
-  late final Future<Uint8List>? _cover = switch (widget.note.text.coverHash) {
-    final hash? => widget.repository.readGmCover(widget.campaign, hash),
-    null => null,
-  };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final text = widget.note.text;
+    final prep = widget.note.preparation;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (popped, _) {
@@ -73,42 +68,54 @@ class _GmNotePageState extends State<GmNotePage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SelectableText(
-                  text.title,
-                  style: theme.textTheme.headlineMedium,
-                ),
-                if (_cover case final cover?) ...[
-                  const SizedBox(height: 16),
-                  FutureBuilder(
-                    future: cover,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return const Text('Não foi possível carregar a capa.');
-                      }
-                      final bytes = snapshot.data;
-                      if (bytes == null) {
-                        return const Align(
-                          alignment: Alignment.centerLeft,
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.memory(
-                          bytes,
-                          height: 260,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) =>
-                              const Text('Não foi possível abrir a capa.'),
-                        ),
-                      );
-                    },
+                if (text.coverHash case final hash?) ...[
+                  SizedBox(
+                    height: 260,
+                    child: NotebookCoverImage.private(
+                      repository: widget.repository,
+                      campaign: widget.campaign,
+                      hash: hash,
+                      layout: widget.note.presentation.cover,
+                    ),
                   ),
+                  const SizedBox(height: 16),
                 ],
-                if (text.body.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  SelectableText(text.body, style: theme.textTheme.bodyLarge),
-                ],
+                NotebookReadingSheet(
+                  record: CampaignRecord(
+                    text.title,
+                    text.body,
+                    presentation: widget.note.presentation,
+                  ),
+                  theme: theme,
+                  repository: widget.repository,
+                  campaignId: widget.campaign.id,
+                  privateCampaign: widget.campaign,
+                ),
+                if (prep != emptyGmPreparation)
+                  ExpansionTile(
+                    title: const Text('Preparação da sessão'),
+                    children: [
+                      if (prep.nextSession)
+                        const ListTile(title: Text('Na próxima sessão')),
+                      if (prep.state != 'idea')
+                        ListTile(
+                          title: const Text('Estado'),
+                          subtitle: Text(
+                            gmPreparationStates[prep.state] ?? prep.state,
+                          ),
+                        ),
+                      for (final (label, value) in [
+                        ('Etiquetas', prep.tags),
+                        ('Condições ou testes', prep.cue),
+                        ('Referência de música', prep.music),
+                      ])
+                        if (value.trim().isNotEmpty)
+                          ListTile(
+                            title: Text(label),
+                            subtitle: SelectableText(value),
+                          ),
+                    ],
+                  ),
               ],
             ),
           ),

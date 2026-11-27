@@ -68,13 +68,24 @@ tipográfico em dourado, com a fonte Cinzel Decorative Black. A fonte e
 sua licença SIL OFL estão em `assets/branding-fonts/`. O APK de celular
 recomendado continua na versão 0.17.0-dev.22.
 
-## Próxima versão Android
+## Versão 0.17.0-dev.26
 
-Levar ao Android os efeitos de som de login aprovados no PC. Usar um
-toque curto de cristal ao digitar e um acorde ao acionar **Entrar**, com
-controle para ligar ou silenciar. Preservar o enquadramento vertical e o
-formulário aprovados no celular. A implementação atual de áudio usa a
-Web Audio API no PC e precisa de uma implementação Android correspondente.
+O editor privado do mestre usa os estilos, formatação e controles de
+imagem do Caderno. Capas, imagens internas e recortes usam o bucket
+privado da campanha e o salvamento existente por revisão. A busca
+inclui as notas, etiquetas, condições e referências de música. O filtro
+**Próxima sessão** mostra as notas marcadas na seção **Preparação da sessão**.
+
+Em **Caderno → Ferramentas**, o mestre pode exportar e restaurar backup
+ZIP com registros compartilhados já sincronizados, crônicas, lixeira e
+as imagens referenciadas. A restauração acrescenta IDs ausentes e
+preserva o conteúdo atual. O ZIP tem limite de 48 MB, é do formato da
+reconstrução e contém apenas dados compartilhados. O procedimento
+administrativo de recuperação completa segue em `supabase/BACKUP.md`.
+
+O Android tem sons opcionais no login. O ícone de alto-falante habilita
+um toque de cristal e um acorde ao entrar, com preferência local.
+O bloqueio de capturas foi descartado por decisão do mestre.
 
 ## Situação
 

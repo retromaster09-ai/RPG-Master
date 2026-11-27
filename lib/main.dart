@@ -22,6 +22,7 @@ import 'login_audio.dart';
 import 'login_layout.dart';
 import 'mission_fields.dart';
 import 'missions.dart';
+import 'notebook_backup.dart';
 import 'notebook_editor.dart';
 import 'notebook_page.dart';
 import 'notebook_sync.dart';
@@ -154,7 +155,20 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _registering = false;
   bool _recovering = false;
   bool _showPassword = false;
-  late bool _soundEnabled = loginAudioEnabled;
+  bool _soundEnabled = false;
+  bool _soundChanged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!hasLoginAudio) return;
+    unawaited(
+      readLoginAudioEnabled().then((value) {
+        if (mounted && !_soundChanged) setState(() => _soundEnabled = value);
+      }),
+    );
+  }
+
   bool _busy = false;
   String? _error;
 
@@ -215,7 +229,9 @@ class _SignInScreenState extends State<SignInScreen> {
         onClose: () => setState(() => _recovering = false),
       );
     }
-    final soundsAvailable = isDesktopWebLogin(MediaQuery.sizeOf(context).width);
+    final soundsAvailable =
+        hasAndroidLoginAudio ||
+        isDesktopWebLogin(MediaQuery.sizeOf(context).width);
     final onTyping = soundsAvailable && _soundEnabled
         ? (String _) => playLoginAudio(entering: false)
         : null;
@@ -230,8 +246,9 @@ class _SignInScreenState extends State<SignInScreen> {
                 foregroundColor: const Color(0xffffe1ad),
               ),
               onPressed: () {
+                _soundChanged = true;
                 setState(() => _soundEnabled = !_soundEnabled);
-                setLoginAudioEnabled(_soundEnabled);
+                unawaited(setLoginAudioEnabled(_soundEnabled));
                 if (_soundEnabled) playLoginAudio(entering: false);
               },
               icon: Icon(_soundEnabled ? Icons.volume_up : Icons.volume_off),
@@ -657,7 +674,7 @@ const _notebookSectionArt = {
 
 enum _RecordAction { duplicate, trash }
 
-enum _NotebookTool { importWord }
+enum _NotebookTool { importWord, exportBackup, restoreBackup }
 
 class NotebookScreen extends StatefulWidget {
   const NotebookScreen({
@@ -692,6 +709,7 @@ class _NotebookScreenState extends State<NotebookScreen>
   _ChronicleOrder? _chroniclePreference;
   bool _trashBusy = false;
   bool _readingWord = false;
+  bool _backupBusy = false;
   bool _exportingChronicles = false;
   final _recordWrites = <String>{};
   _NotebookDrag? _dragBasis;
@@ -731,6 +749,7 @@ class _NotebookScreenState extends State<NotebookScreen>
 
   @override
   void dispose() {
+    _gmSearch.dispose();
     _poll?.cancel();
     _search.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -739,6 +758,10 @@ class _NotebookScreenState extends State<NotebookScreen>
   }
 
   Future<List<GmNote>>? _privateNotes;
+  final _gmSearch = TextEditingController();
+  String _gmQuery = '';
+  bool _gmNextSession = false;
+  bool get _gmFiltered => _gmQuery.isNotEmpty || _gmNextSession;
   _NotebookTab _tab = _NotebookTab.records;
   Widget? _editor;
 
@@ -1369,7 +1392,24 @@ class _NotebookScreenState extends State<NotebookScreen>
     if (snapshot.hasError) {
       return const Center(child: Text('Não foi possível abrir o roteiro.'));
     }
-    final notes = snapshot.requireData;
+    final terms = removeDiacritics(_gmQuery.toLowerCase())
+        .split(RegExp(r'\s+'));
+    final notes = snapshot.requireData.where((note) {
+      final prep = note.preparation;
+      if (_gmNextSession && !prep.nextSession) return false;
+      final text = note.text;
+      final contents = removeDiacritics(
+        [
+          text.title,
+          text.body,
+          prep.tags,
+          prep.cue,
+          prep.music,
+          gmPreparationStates[prep.state],
+        ].join(' ').toLowerCase(),
+      );
+      return terms.every(contents.contains);
+    }).toList();
     final sections = <String, List<GmNote>>{
       for (final kind in GmNoteKind.values)
         if (kind != GmNoteKind.note) kind.plural: [],
@@ -1391,21 +1431,43 @@ class _NotebookScreenState extends State<NotebookScreen>
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                onPressed: _editGmNote,
-                icon: const Icon(Icons.add),
-                label: const Text('Nova nota ou página'),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FilledButton.icon(
+                  onPressed: _editGmNote,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nova nota ou página'),
+                ),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Buscar no roteiro privado',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (value) => setState(() => _gmQuery = value.trim()),
+                  controller: _gmSearch,
+                ),
+                const SizedBox(height: 8),
+                FilterChip(
+                  label: const Text('Próxima sessão'),
+                  selected: _gmNextSession,
+                  onSelected: (value) => setState(() => _gmNextSession = value),
+                ),
+              ],
             ),
           ),
         ),
         if (notes.isEmpty)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: Text('Seu roteiro está vazio.')),
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text(
+                  _gmFiltered
+                      ? 'Nenhuma nota encontrada.'
+                      : 'Seu roteiro está vazio.',
+                ),
+              ),
             ),
           ),
         for (final section in sections.entries)
@@ -1433,7 +1495,7 @@ class _NotebookScreenState extends State<NotebookScreen>
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            if (notes.length > 1)
+            if (notes.length > 1 && !_gmFiltered)
               IconButton(
                 tooltip: 'Organizar $label',
                 icon: const Icon(Icons.swap_vert),
@@ -1454,7 +1516,7 @@ class _NotebookScreenState extends State<NotebookScreen>
           return ReorderableDelayedDragStartListener(
             key: ValueKey(note.id),
             index: index,
-            enabled: !_trashBusy && notes.length > 1,
+            enabled: !_trashBusy && !_gmFiltered && notes.length > 1,
             child: Card(
               child: ListTile(
                 title: Text(note.text.title),
@@ -1530,6 +1592,108 @@ class _NotebookScreenState extends State<NotebookScreen>
       ),
   ];
 
+  Future<void> _notebookBackup({required bool restore}) async {
+    final repository = widget.repository;
+    final campaign = widget.campaign;
+    if (!widget.isOwner || _backupBusy) return;
+    setState(() => _backupBusy = true);
+    final messages = ScaffoldMessenger.of(context);
+    try {
+      if (restore) {
+        final zip = await openFile(
+          acceptedTypeGroups: const [
+            XTypeGroup(
+              label: 'Backup ZIP',
+              extensions: ['zip'],
+              mimeTypes: ['application/zip'],
+            ),
+          ],
+        );
+        if (zip == null || !mounted) return;
+        if (await zip.length() > notebookBackupLimit) {
+          throw const FormatException('O backup ultrapassa 48 MB.');
+        }
+        final backup = readNotebookBackup(await zip.readAsBytes());
+        if (!mounted) return;
+        final count =
+            backup.notebook.records.length +
+            backup.notebook.sessions.length +
+            backup.notebook.trash.length;
+        final accepted = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Restaurar backup do caderno'),
+            content: Text(
+              'O ZIP contém $count registros. Os registros que já existem em '
+              '“${campaign.name}” serão preservados. Os registros adicionados '
+              'ficarão disponíveis aos membros da campanha.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Restaurar'),
+              ),
+            ],
+          ),
+        );
+        if (accepted != true || !mounted) return;
+        final baseline = await repository.readNotebook(campaign.id);
+        final added = await repository.restoreNotebookBackup(
+          campaign,
+          baseline,
+          backup.notebook,
+          backup.images,
+        );
+        if (!mounted) return;
+        await _sync.refresh();
+        if (mounted) {
+          messages.showSnackBar(
+            SnackBar(
+              content: Text(
+                added == 1
+                    ? '1 registro restaurado.'
+                    : '$added registros restaurados.',
+              ),
+            ),
+          );
+        }
+      } else {
+        final notebook = await repository.readNotebook(campaign.id);
+        final bytes = await createNotebookBackup(
+          notebook,
+          (hash) => repository.readNotebookCover(campaign.id, hash),
+        );
+        if (!mounted) return;
+        final date = DateTime.now().toIso8601String().substring(0, 10);
+        await saveChronicleFile(
+          bytes,
+          'RPG-Master-Set-caderno-$date.zip',
+          'application/zip',
+        );
+      }
+    } on FormatException catch (error) {
+      if (mounted) {
+        messages.showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        messages.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível concluir o backup. Confira o arquivo e a conexão.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
   Widget _sectionIndex(Notebook notebook, List<NotebookDraft> drafts) {
     final sections = {
       ..._notebookSections.keys,
@@ -1552,7 +1716,7 @@ class _NotebookScreenState extends State<NotebookScreen>
                 ),
               ),
               PopupMenuButton<_NotebookTool>(
-                enabled: !_readingWord && !_trashBusy,
+                enabled: !_readingWord && !_trashBusy && !_backupBusy,
                 tooltip: _readingWord
                     ? 'Lendo Word…'
                     : 'Ferramentas do caderno',
@@ -1562,9 +1726,13 @@ class _NotebookScreenState extends State<NotebookScreen>
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.more_vert),
-                onSelected: (_) => _openWord(),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
+                onSelected: (tool) => switch (tool) {
+                  _NotebookTool.importWord => _openWord(),
+                  _NotebookTool.exportBackup => _notebookBackup(restore: false),
+                  _NotebookTool.restoreBackup => _notebookBackup(restore: true),
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
                     value: _NotebookTool.importWord,
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -1572,6 +1740,24 @@ class _NotebookScreenState extends State<NotebookScreen>
                       title: Text('Importar Word'),
                     ),
                   ),
+                  if (widget.isOwner) ...const [
+                    PopupMenuItem(
+                      value: _NotebookTool.exportBackup,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.archive_outlined),
+                        title: Text('Exportar backup ZIP'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _NotebookTool.restoreBackup,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.restore),
+                        title: Text('Restaurar backup ZIP'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],

@@ -5,6 +5,11 @@ import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 
+bool get hasAndroidLoginAudio =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+bool get hasLoginAudio => hasAndroidLoginAudio || kIsWeb;
+
 bool isDesktopWebLogin(double width) =>
     kIsWeb &&
     width >= 760 &&
@@ -167,7 +172,7 @@ class LoginLayout extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (desktop && soundControl != null)
+                if ((desktop || hasAndroidLoginAudio) && soundControl != null)
                   Positioned(
                     top: insets.top + 16,
                     right: insets.right + 18,

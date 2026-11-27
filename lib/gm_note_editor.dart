@@ -5,6 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campaigns.dart';
 import 'cover_picker.dart';
+import 'cover_frame.dart';
+import 'notebook_format.dart';
+import 'notebook_page.dart';
+import 'notebook_picture_editor.dart';
+import 'notebook_rich_text.dart';
 
 class GmNoteEditor extends StatefulWidget {
   const GmNoteEditor({
@@ -38,7 +43,37 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
         coverHash: null,
       );
   late final _title = TextEditingController(text: _initial.title);
-  late final _body = TextEditingController(text: _initial.body);
+  late final _initialVisual =
+      widget.note?.presentation ?? const NotebookPresentation();
+  late final _body = NotebookTextController(
+    _initial.body,
+    _initialVisual.bodyMarks,
+  );
+  late var _paper = _initialVisual.paper;
+  late var _coverLayout = _initialVisual.cover;
+  late var _pictures = _initialVisual.pictures;
+  late final _initialPreparation =
+      widget.note?.preparation ?? emptyGmPreparation;
+  late final _tags = TextEditingController(text: _initialPreparation.tags);
+  late final _cue = TextEditingController(text: _initialPreparation.cue);
+  late final _music = TextEditingController(text: _initialPreparation.music);
+  late var _state = _initialPreparation.state;
+  late var _nextSession = _initialPreparation.nextSession;
+
+  NotebookPresentation get _visual => NotebookPresentation(
+    paper: _paper,
+    cover: _coverLayout,
+    bodyMarks: _body.marks,
+    pictures: _pictures,
+  );
+
+  GmPreparation get _preparation => (
+    state: _state,
+    tags: _tags.text,
+    cue: _cue.text,
+    music: _music.text,
+    nextSession: _nextSession,
+  );
   late var _section = _initial.section;
   late var _kind = _initial.kind;
   late String? _coverHash = _initial.coverHash;
@@ -60,12 +95,18 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
   void dispose() {
     _title.dispose();
     _body.dispose();
+    _tags.dispose();
+    _cue.dispose();
+    _music.dispose();
     super.dispose();
   }
 
   Future<void> _close() async {
     if (_saving || _pickingCover || _confirmingClose) return;
-    if (_draft == _initial && _newCover == null) {
+    if (_draft == _initial &&
+        _newCover == null &&
+        _visual.sameAs(_initialVisual) &&
+        _preparation == _initialPreparation) {
       widget.onClose();
       return;
     }
@@ -91,15 +132,28 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
     if (discard == true) widget.onClose();
   }
 
-  Future<void> _chooseCover() async {
+  Future<void> _chooseImage({bool inline = false}) async {
     setState(() {
       _pickingCover = true;
       _error = null;
     });
     try {
-      final png = await pickCoverImage();
+      final png = await pickCoverImage(maxPngBytes: 1024 * 1024);
       if (png == null) return;
-      if (mounted) setState(() => _newCover = png);
+      if (!mounted) return;
+      setState(() {
+        if (inline) {
+          _pictures = [
+            ..._pictures,
+            NotebookPicture(
+              png: png,
+              afterParagraph: notebookParagraphs(_body.text).length - 1,
+            ),
+          ];
+        } else {
+          _newCover = png;
+        }
+      });
     } on FormatException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -113,6 +167,24 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
       if (mounted) setState(() => _pickingCover = false);
     }
   }
+
+  Future<void> _editPicture(int index) async {
+    final edited = await showDialog<NotebookPicture>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => NotebookPictureEditor(
+        picture: _pictures[index],
+        paragraphCount: notebookParagraphs(_body.text).length,
+        load: (hash) => widget.repository.readGmCover(widget.campaign, hash),
+      ),
+    );
+    if (!mounted || edited == null) return;
+    setState(() => _pictures = [..._pictures]..[index] = edited);
+  }
+
+  Future<String?> _upload(Uint8List? png, String? saved) async => png == null
+      ? saved
+      : await widget.repository.uploadGmCover(widget.campaign, png);
 
   Future<void> _save() async {
     if (_saving || _pickingCover) return;
@@ -130,6 +202,16 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
       final coverHash = newCover == null
           ? draft.coverHash
           : await widget.repository.uploadGmCover(widget.campaign, newCover);
+      final visual = _visual;
+      final pictures = <NotebookPicture>[];
+      for (final picture in visual.pictures) {
+        pictures.add(
+          picture.uploaded(
+            original: await _upload(picture.png, picture.hash),
+            cutout: await _upload(picture.cutoutPng, picture.cutoutHash),
+          ),
+        );
+      }
       await widget.repository.saveGmNote(
         campaign: widget.campaign,
         id: _id,
@@ -141,6 +223,13 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
           coverHash: coverHash,
         ),
         original: widget.note,
+        preparation: _preparation,
+        presentation: NotebookPresentation(
+          paper: visual.paper,
+          cover: visual.cover,
+          bodyMarks: visual.bodyMarks,
+          pictures: pictures,
+        ),
       );
       if (mounted) widget.onSaved();
     } on GmNoteConflict {
@@ -169,6 +258,81 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  Widget _preparationFields(bool busy) => ExpansionTile(
+    title: const Text('Preparação da sessão'),
+    children: [
+      SwitchListTile(
+        title: const Text('Usar na próxima sessão'),
+        value: _nextSession,
+        onChanged: busy
+            ? null
+            : (value) => setState(() => _nextSession = value),
+      ),
+      DropdownButtonFormField<String>(
+        initialValue: _state,
+        decoration: const InputDecoration(labelText: 'Estado'),
+        items: [
+          for (final entry in gmPreparationStates.entries)
+            DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+        ],
+        onChanged: busy ? null : (value) => setState(() => _state = value!),
+      ),
+      for (final (controller, label, hint, limit) in [
+        (_tags, 'Etiquetas', 'Ex.: pista, castelo', 1000),
+        (
+          _cue,
+          'Condições ou testes',
+          'Ex.: revelar se encontrarem a carta',
+          4000,
+        ),
+        (_music, 'Referência de música', 'Nome da faixa ou link', 2048),
+      ])
+        TextField(
+          controller: controller,
+          enabled: !busy,
+          maxLength: limit,
+          minLines: 1,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            counterText: '',
+          ),
+        ),
+    ],
+  );
+
+  Widget _pictureFields(bool busy) => ExpansionTile(
+    title: const Text('Imagens no texto'),
+    children: [
+      for (final (index, picture) in _pictures.indexed)
+        ListTile(
+          leading: const Icon(Icons.image_outlined),
+          title: Text(
+            picture.caption.isEmpty ? 'Imagem ${index + 1}' : picture.caption,
+          ),
+          subtitle: Text(notebookPicturePosition(picture.afterParagraph)),
+          onTap: busy ? null : () => _editPicture(index),
+          trailing: IconButton(
+            tooltip: 'Remover imagem',
+            icon: const Icon(Icons.close),
+            onPressed: busy
+                ? null
+                : () => setState(
+                    () => _pictures = [..._pictures]..removeAt(index),
+                  ),
+          ),
+        ),
+      TextButton.icon(
+        onPressed: busy || _pictures.length >= 12
+            ? null
+            : () => _chooseImage(inline: true),
+        icon: const Icon(Icons.add_photo_alternate_outlined),
+        label: const Text('Inserir imagem no texto'),
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -219,13 +383,31 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
                     : (section) => setState(() => _section = section!),
               ),
             const SizedBox(height: 12),
-            if (_newCover case final cover?)
-              Image.memory(cover, height: 160, fit: BoxFit.contain),
+            if (_newCover != null || _coverHash != null) ...[
+              SizedBox(
+                height: 160,
+                child: _newCover != null
+                    ? CoverFrame(bytes: _newCover!, layout: _coverLayout)
+                    : NotebookCoverImage.private(
+                        repository: widget.repository,
+                        campaign: widget.campaign,
+                        hash: _coverHash!,
+                        layout: _coverLayout,
+                      ),
+              ),
+              NotebookCoverControls(
+                layout: _coverLayout,
+                onChangeEnd: () {},
+                onChanged: busy
+                    ? null
+                    : (value) => setState(() => _coverLayout = value),
+              ),
+            ],
             Wrap(
               spacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: busy ? null : _chooseCover,
+                  onPressed: busy ? null : _chooseImage,
                   icon: const Icon(Icons.image_outlined),
                   label: Text(
                     _coverHash != null || _newCover != null
@@ -246,6 +428,22 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
               ],
             ),
             const SizedBox(height: 16),
+            DropdownButtonFormField<NotebookPaper>(
+              initialValue: _paper,
+              decoration: const InputDecoration(labelText: 'Estilo de página'),
+              items: [
+                for (final paper in NotebookPaper.values)
+                  DropdownMenuItem(value: paper, child: Text(paper.label)),
+              ],
+              onChanged: busy
+                  ? null
+                  : (value) => setState(() => _paper = value!),
+            ),
+            NotebookFormattingBar(
+              controller: _body,
+              enabled: !busy,
+              onChanged: () => setState(() {}),
+            ),
             TextField(
               controller: _body,
               enabled: !_saving,
@@ -259,6 +457,8 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
                 counterText: '',
               ),
             ),
+            _pictureFields(busy),
+            _preparationFields(busy),
             if (_error case final error?) ...[
               const SizedBox(height: 12),
               Semantics(

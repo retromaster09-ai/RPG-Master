@@ -369,6 +369,29 @@ typedef GmNoteText = ({
   String? coverHash,
 });
 
+typedef GmPreparation = ({
+  String state,
+  String tags,
+  String cue,
+  String music,
+  bool nextSession,
+});
+
+const gmPreparationStates = {
+  'idea': 'Ideia',
+  'ready': 'Preparada',
+  'used': 'Utilizada',
+  'discarded': 'Descartada',
+};
+
+const emptyGmPreparation = (
+  state: 'idea',
+  tags: '',
+  cue: '',
+  music: '',
+  nextSession: false,
+);
+
 final _coverHash = RegExp(r'^[0-9a-f]{64}$');
 
 class GmNoteConflict implements Exception {
@@ -405,6 +428,33 @@ class GmNote {
       coverHash: cover is String && _coverHash.hasMatch(cover) ? cover : null,
     );
   }
+
+  GmPreparation get preparation => (
+    state: _row['state'] as String? ?? 'idea',
+    tags: _row['tags'] as String? ?? '',
+    cue: _row['cue'] as String? ?? '',
+    music: _row['music'] as String? ?? '',
+    nextSession: _row['next_session'] == true,
+  );
+
+  NotebookPresentation get presentation => NotebookPresentation(
+    paper: NotebookPaper.read(_presentation['paper']),
+    cover: _presentation['coverLook'] == null
+        ? const CampaignCoverLayout(fill: false)
+        : CampaignCoverLayout.fromJson(_presentation['coverLook']),
+    bodyMarks: readNotebookMarks(_presentation['marks'], text.body.length),
+    pictures: readNotebookPictures([
+      for (final picture in (_presentation['pictures'] as List? ?? const []))
+        if (picture is Map<String, dynamic>)
+          {
+            ...({...picture}
+              ..remove('hash')
+              ..remove('cutoutHash')),
+            'path': 'rpg-media:${picture['hash']}',
+            'cutoutPath': 'rpg-media:${picture['cutoutHash']}',
+          },
+    ]),
+  );
 
   Map<String, dynamic> _payload(GmNoteText draft) {
     final before = text;
@@ -457,6 +507,42 @@ Map<String, Object> _newGmNotePayload(GmNoteText draft) => {
   'cue': '',
   'music': '',
   'next_session': false,
+};
+
+Map<String, Object?> _gmEditedPresentation(
+  GmNoteText draft,
+  NotebookPresentation visual,
+  Map<String, dynamic> previous,
+) => {
+  ...previous,
+  'entryKind': draft.kind.name,
+  'paper': visual.paper.label,
+  'marks': writeNotebookMarks(visual.bodyMarks),
+  'cover': draft.coverHash,
+  'coverLook': {
+    'shape': 'rounded',
+    'border': false,
+    if (previous['coverLook'] case final Map look) ...look,
+    ...visual.cover.toJson(),
+  },
+  'pictures': [
+    for (final picture in visual.pictures)
+      {
+        ...picture.extra,
+        'hash': picture.hash,
+        'cutoutHash': picture.cutoutHash,
+        'caption': picture.caption,
+        'afterParagraph': picture.afterParagraph,
+      },
+  ],
+};
+
+Map<String, Object> _gmPreparationPayload(GmPreparation preparation) => {
+  'state': preparation.state,
+  'tags': preparation.tags,
+  'cue': preparation.cue,
+  'music': preparation.music,
+  'next_session': preparation.nextSession,
 };
 
 class CampaignRepository {
@@ -761,6 +847,40 @@ class CampaignRepository {
     return result;
   }
 
+  Future<int> restoreNotebookBackup(
+    Campaign campaign,
+    Notebook baseline,
+    Notebook backup,
+    Map<String, Uint8List> images,
+  ) async {
+    _requireCampaignOwner(campaign);
+    final imported = backup._entries;
+    final ids = <String>{};
+    for (final entry in imported) {
+      final id = entry['id'];
+      if (id is! String || id.isEmpty || !ids.add(id)) {
+        throw const FormatException(
+          'O backup contém IDs ausentes ou repetidos.',
+        );
+      }
+    }
+    for (final image in images.entries) {
+      _requireCampaignOwner(campaign);
+      await _uploadCover(campaign.id, image.value, 'rpg-notes');
+    }
+    var added = 0;
+    await _updateNotebook(campaign.id, baseline, (latest) {
+      _requireCampaignOwner(campaign);
+      final existing = latest._entries.map((entry) => entry['id']).toSet();
+      final missing = imported
+          .where((entry) => !existing.contains(entry['id']))
+          .toList();
+      added = missing.length;
+      return missing.isEmpty ? null : [...latest._entries, ...missing];
+    });
+    return added;
+  }
+
   Future<void> duplicateRecord(
     String campaignId,
     Notebook notebook,
@@ -1010,10 +1130,29 @@ class CampaignRepository {
     required String id,
     required GmNoteText draft,
     GmNote? original,
+    NotebookPresentation? presentation,
+    GmPreparation? preparation,
   }) async {
     _requireCampaignOwner(campaign);
     if (original != null && original.id != id) {
       throw ArgumentError('A nota editada precisa ter o mesmo ID.');
+    }
+    final payload =
+        original?._payload(draft) ??
+        {
+          ..._newGmNotePayload(draft),
+          if (draft.kind != GmNoteKind.note || draft.coverHash != null)
+            'presentation': _gmPresentation(draft),
+        };
+    if (preparation != null) {
+      payload.addAll(_gmPreparationPayload(preparation));
+    }
+    if (presentation != null) {
+      payload['presentation'] = _gmEditedPresentation(
+        draft,
+        presentation,
+        original?._presentation ?? const {},
+      );
     }
     final revision = await _client.rpc<int?>(
       'rpg_try_save_gm_note',
@@ -1021,26 +1160,23 @@ class CampaignRepository {
         'p_campaign': campaign.id,
         'p_id': id,
         'p_expected': original?.revision ?? 0,
-        'p_note':
-            original?._payload(draft) ??
-            {
-              ..._newGmNotePayload(draft),
-              if (draft.kind != GmNoteKind.note || draft.coverHash != null)
-                'presentation': _gmPresentation(draft),
-            },
+        'p_note': payload,
       },
     );
     if (revision != null) return;
     final notes = await readGmNotes(campaign);
     final saved = notes.where((note) => note.id == id).firstOrNull;
     if (saved?.text !=
-        (
-          title: draft.title.trim(),
-          body: draft.body,
-          section: draft.section,
-          kind: draft.kind,
-          coverHash: draft.coverHash,
-        )) {
+            (
+              title: draft.title.trim(),
+              body: draft.body,
+              section: draft.section,
+              kind: draft.kind,
+              coverHash: draft.coverHash,
+            ) ||
+        (preparation != null && saved?.preparation != preparation) ||
+        (presentation != null &&
+            (saved == null || !saved.presentation.sameAs(presentation)))) {
       throw const GmNoteConflict();
     }
   }
