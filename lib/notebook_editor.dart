@@ -509,7 +509,13 @@ class _NotebookEditorState extends State<NotebookEditor> {
           ],
         ),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.symmetric(
+            vertical: 16,
+            horizontal: ((MediaQuery.sizeOf(context).width - 928) / 2).clamp(
+              16.0,
+              double.infinity,
+            ),
+          ),
           children: [
             if (_baseRecord == null && !widget.isSession)
               DropdownButtonFormField<String>(

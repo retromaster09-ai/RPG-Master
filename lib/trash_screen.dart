@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campaigns.dart';
 import 'notebook_sync.dart';
@@ -28,7 +29,8 @@ String trashMessage(Object error) {
     return 'Conecte-se à internet para atualizar a lixeira.';
   }
   if (error is NotebookConflict) return error.message;
-  if (error is GmNoteConflict) {
+  if (error is GmNoteConflict ||
+      (error is PostgrestException && error.code == '40001')) {
     return 'A nota mudou. Atualize a lista e tente novamente.';
   }
   return 'Não foi possível atualizar a lixeira. Tente novamente.';
@@ -42,6 +44,7 @@ class TrashScreen<T> extends StatefulWidget {
     required this.itemTitle,
     required this.itemCategory,
     required this.restore,
+    this.permanentlyDelete,
     required this.onBack,
   });
 
@@ -50,6 +53,7 @@ class TrashScreen<T> extends StatefulWidget {
   final String Function(T) itemTitle;
   final String? Function(T) itemCategory;
   final Future<void> Function(T) restore;
+  final Future<void> Function(T)? permanentlyDelete;
   final VoidCallback onBack;
 
   @override
@@ -67,18 +71,48 @@ class _TrashScreenState<T> extends State<TrashScreen<T>> {
     });
   }
 
-  Future<void> _restore(T item) async {
+  Future<void> _confirmDelete(T item) async {
+    final name = widget.itemTitle(item);
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir definitivamente?'),
+        content: Text(
+          '“$name” será removido do caderno e do histórico da campanha. Esta ação é irreversível no app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir de vez'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && accepted == true) await _change(item, delete: true);
+  }
+
+  Future<void> _change(T item, {bool delete = false}) async {
     if (_restoring) return;
     setState(() => _restoring = true);
     try {
-      await widget.restore(item);
+      await (delete ? widget.permanentlyDelete!(item) : widget.restore(item));
       if (mounted) {
         _refresh();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Registro restaurado.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              delete
+                  ? 'Registro excluído definitivamente.'
+                  : 'Registro restaurado.',
+            ),
+          ),
+        );
       }
-    } on Exception catch (error) {
+    } catch (error) {
       if (mounted) {
         _refresh();
         ScaffoldMessenger.of(context)
@@ -140,10 +174,23 @@ class _TrashScreenState<T> extends State<TrashScreen<T>> {
                 child: ListTile(
                   title: Text(title.trim().isEmpty ? 'Sem título' : title),
                   subtitle: category == null ? null : Text(category),
-                  trailing: IconButton(
-                    onPressed: _restoring ? null : () => _restore(item),
-                    icon: const Icon(Icons.restore_from_trash_outlined),
-                    tooltip: 'Restaurar',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: _restoring ? null : () => _change(item),
+                        icon: const Icon(Icons.restore_from_trash_outlined),
+                        tooltip: 'Restaurar',
+                      ),
+                      if (widget.permanentlyDelete != null)
+                        IconButton(
+                          onPressed: _restoring
+                              ? null
+                              : () => _confirmDelete(item),
+                          icon: const Icon(Icons.delete_forever_outlined),
+                          tooltip: 'Excluir definitivamente',
+                        ),
+                    ],
                   ),
                 ),
               );

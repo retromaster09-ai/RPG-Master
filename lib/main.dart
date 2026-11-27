@@ -425,9 +425,56 @@ class _CampaignScreenState extends State<CampaignScreen> {
   late Future<List<Campaign>> _campaigns = _loadCampaigns();
   Campaign? _selected;
   bool _accountOpen = false;
+  Set<String> _hiddenCampaigns = {};
+  bool _showHiddenCampaigns = false;
+  bool _changingVisibility = false;
+
+  Future<void> _setCampaignHidden(Campaign campaign, bool hide) async {
+    if (_changingVisibility || !_currentAccount) return;
+    setState(() => _changingVisibility = true);
+    final next = {..._hiddenCampaigns};
+    if (hide) {
+      next.add(campaign.id);
+    } else {
+      next.remove(campaign.id);
+    }
+    try {
+      await _offlineStorage.write(
+        'hidden-campaigns',
+        jsonEncode(next.toList()),
+      );
+      if (mounted && _currentAccount) {
+        setState(() {
+          _hiddenCampaigns = next;
+          if (next.isEmpty) _showHiddenCampaigns = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível guardar a lista neste aparelho.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _changingVisibility = false);
+    }
+  }
 
   Future<List<Campaign>> _loadCampaigns() async {
     const key = 'campaigns';
+    try {
+      final saved = await _offlineStorage.read('hidden-campaigns');
+      if (saved != null) {
+        final decoded = jsonDecode(saved);
+        if (decoded is List) {
+          _hiddenCampaigns = decoded.whereType<String>().toSet();
+        }
+      }
+    } catch (_) {
+      // The list can still open if device preferences are unavailable.
+    }
     try {
       final campaigns = await _repository.list().timeout(
         notebookRequestTimeout,
@@ -548,7 +595,9 @@ class _CampaignScreenState extends State<CampaignScreen> {
             tooltip: 'Minha conta',
           ),
           IconButton(
-            onPressed: () => setState(() => _campaigns = _loadCampaigns()),
+            onPressed: _changingVisibility
+                ? null
+                : () => setState(() => _campaigns = _loadCampaigns()),
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar',
           ),
@@ -595,32 +644,96 @@ class _CampaignScreenState extends State<CampaignScreen> {
                     child: Text('Não foi possível carregar suas campanhas.'),
                   );
                 }
-                final campaigns = snapshot.data!;
-                if (campaigns.isEmpty) {
-                  return const Center(
-                    child: Text('Nenhuma campanha disponível.'),
+                final campaigns = snapshot.requireData
+                    .where(
+                      (campaign) =>
+                          _hiddenCampaigns.contains(campaign.id) ==
+                          _showHiddenCampaigns,
+                    )
+                    .toList();
+                final wide = isDesktopWebLogin(
+                  MediaQuery.sizeOf(context).width,
+                );
+                Widget card(BuildContext context, int index) {
+                  final campaign = campaigns[index];
+                  final isOwner = campaign.ownerId == widget.userId;
+                  return CampaignCard(
+                    key: ValueKey(campaign.id),
+                    campaign: campaign,
+                    repository: _repository,
+                    isOwner: isOwner,
+                    onOpen: () => setState(() => _selected = campaign),
+                    onEditCover: isOwner ? () => _editCover(campaign) : null,
+                    onToggleHidden: _changingVisibility
+                        ? null
+                        : () => _setCampaignHidden(
+                            campaign,
+                            !_showHiddenCampaigns,
+                          ),
+                    hidden: _showHiddenCampaigns,
+                    maxTitleLines: wide ? 2 : null,
                   );
                 }
+
                 return Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
-                      itemCount: campaigns.length,
-                      itemBuilder: (context, index) {
-                        final campaign = campaigns[index];
-                        final isOwner = campaign.ownerId == widget.userId;
-                        return CampaignCard(
-                          key: ValueKey(campaign.id),
-                          campaign: campaign,
-                          repository: _repository,
-                          isOwner: isOwner,
-                          onOpen: () => setState(() => _selected = campaign),
-                          onEditCover: isOwner
-                              ? () => _editCover(campaign)
-                              : null,
-                        );
-                      },
+                    constraints: BoxConstraints(maxWidth: wide ? 1380 : 720),
+                    child: Column(
+                      children: [
+                        if (_hiddenCampaigns.isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () => setState(
+                                () => _showHiddenCampaigns =
+                                    !_showHiddenCampaigns,
+                              ),
+                              icon: Icon(
+                                _showHiddenCampaigns
+                                    ? Icons.arrow_back
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              label: Text(
+                                _showHiddenCampaigns
+                                    ? 'Voltar às campanhas'
+                                    : 'Campanhas ocultas',
+                              ),
+                            ),
+                          ),
+                        Expanded(
+                          child: campaigns.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    _showHiddenCampaigns
+                                        ? 'Nenhuma campanha oculta.'
+                                        : 'Nenhuma campanha disponível.',
+                                  ),
+                                )
+                              : wide
+                              ? GridView.builder(
+                                  padding: const EdgeInsets.all(20),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: 480,
+                                        mainAxisExtent: 206,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 4,
+                                      ),
+                                  itemCount: campaigns.length,
+                                  itemBuilder: card,
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    16,
+                                    12,
+                                    12,
+                                  ),
+                                  itemCount: campaigns.length,
+                                  itemBuilder: card,
+                                ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -1036,6 +1149,12 @@ class _NotebookScreenState extends State<NotebookScreen>
               restore: (note) => widget.repository
                   .setGmTrash(widget.campaign, note, trashed: false)
                   .timeout(notebookRequestTimeout),
+              permanentlyDelete: widget.isOwner
+                  ? (note) => widget.repository.permanentlyDeleteGmNote(
+                      widget.campaign,
+                      note,
+                    )
+                  : null,
               onBack: _closeGmEditor,
             )
           : TrashScreen<CampaignRecord>(
@@ -1062,6 +1181,21 @@ class _NotebookScreenState extends State<NotebookScreen>
                 }
                 await _setRecordTrash(notebook, record, trashed: false);
               },
+              permanentlyDelete: widget.isOwner
+                  ? (record) async {
+                      final notebook = _sync.notebook;
+                      if (notebook == null) {
+                        throw const NotebookConflict(
+                          'Atualize o caderno e tente novamente.',
+                        );
+                      }
+                      await widget.repository.permanentlyDeleteRecord(
+                        widget.campaign,
+                        notebook,
+                        record,
+                      );
+                    }
+                  : null,
               onBack: () => setState(() => _editor = null),
             );
     });
@@ -1784,7 +1918,18 @@ class _NotebookScreenState extends State<NotebookScreen>
             ],
           ),
         ),
-        for (final section in sections) _sectionCard(section),
+        if (isDesktopWebLogin(MediaQuery.sizeOf(context).width))
+          GridView.count(
+            crossAxisCount: MediaQuery.sizeOf(context).width >= 1260 ? 3 : 2,
+            mainAxisExtent: 126,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 6,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [for (final section in sections) _sectionCard(section)],
+          )
+        else
+          for (final section in sections) _sectionCard(section),
       ],
     );
   }
@@ -2302,6 +2447,19 @@ class _NotebookScreenState extends State<NotebookScreen>
   @override
   Widget build(BuildContext context) {
     if (_editor case final editor?) return editor;
+    final wide = isDesktopWebLogin(MediaQuery.sizeOf(context).width);
+    final destinations = [
+      (Icons.menu_book_outlined, 'Caderno'),
+      (Icons.history_edu_outlined, 'Crônicas'),
+      if (widget.isOwner) (Icons.lock_outline, 'Mestre'),
+    ];
+    final body = _tab == _NotebookTab.private
+        ? FutureBuilder(
+            future: _privateNotes,
+            builder: (context, snapshot) => _gmNotes(snapshot),
+          )
+        : _records();
+    void select(int index) => _selectTab(_NotebookTab.values[index]);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (popped, _) {
@@ -2323,6 +2481,7 @@ class _NotebookScreenState extends State<NotebookScreen>
                     campaign: widget.campaign,
                     repository: widget.repository,
                     onBack: () => setState(() => _editor = null),
+                    onReset: _sync.refreshAfterChange,
                   );
                 }),
               ),
@@ -2350,32 +2509,45 @@ class _NotebookScreenState extends State<NotebookScreen>
             ),
           ],
         ),
-        body: _tab == _NotebookTab.private
-            ? FutureBuilder(
-                future: _privateNotes,
-                builder: (context, snapshot) => _gmNotes(snapshot),
+        body: wide
+            ? Row(
+                children: [
+                  NavigationRail(
+                    extended: true,
+                    minExtendedWidth: 174,
+                    groupAlignment: -0.88,
+                    selectedIndex: _tab.index,
+                    onDestinationSelected: select,
+                    destinations: [
+                      for (final (icon, label) in destinations)
+                        NavigationRailDestination(
+                          icon: Icon(icon),
+                          label: Text(label),
+                        ),
+                    ],
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1280),
+                        child: body,
+                      ),
+                    ),
+                  ),
+                ],
               )
-            : _records(),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab.index,
-          onDestinationSelected: (index) =>
-              _selectTab(_NotebookTab.values[index]),
-          destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined),
-              label: 'Caderno',
-            ),
-            const NavigationDestination(
-              icon: Icon(Icons.history_edu_outlined),
-              label: 'Crônicas',
-            ),
-            if (widget.isOwner)
-              const NavigationDestination(
-                icon: Icon(Icons.lock_outline),
-                label: 'Mestre',
+            : body,
+        bottomNavigationBar: wide
+            ? null
+            : NavigationBar(
+                selectedIndex: _tab.index,
+                onDestinationSelected: select,
+                destinations: [
+                  for (final (icon, label) in destinations)
+                    NavigationDestination(icon: Icon(icon), label: label),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }

@@ -256,6 +256,7 @@ class Notebook {
     this._entries,
     this._revision,
     this._epoch,
+    this._purgedIds,
   );
 
   factory Notebook.fromRpc(Object? data) {
@@ -293,6 +294,11 @@ class Notebook {
       List.unmodifiable(entries),
       data['revision'] as int,
       data['epoch'] as int,
+      Set<String>.unmodifiable(
+        data['purged'] is List
+            ? (data['purged'] as List).whereType<String>()
+            : const [],
+      ),
     );
   }
 
@@ -302,6 +308,7 @@ class Notebook {
   final List<Map<String, dynamic>> _entries;
   final int _revision;
   final int _epoch;
+  final Set<String> _purgedIds;
 
   int get epoch => _epoch;
 
@@ -309,6 +316,7 @@ class Notebook {
     'entries': _entries,
     'revision': _revision,
     'epoch': _epoch,
+    if (_purgedIds.isNotEmpty) 'purged': _purgedIds.toList(),
   };
 }
 
@@ -871,7 +879,10 @@ class CampaignRepository {
     var added = 0;
     await _updateNotebook(campaign.id, baseline, (latest) {
       _requireCampaignOwner(campaign);
-      final existing = latest._entries.map((entry) => entry['id']).toSet();
+      final existing = {
+        ...latest._purgedIds,
+        ...latest._entries.map((entry) => entry['id']),
+      };
       final missing = imported
           .where((entry) => !existing.contains(entry['id']))
           .toList();
@@ -997,6 +1008,71 @@ class CampaignRepository {
     }
     throw const NotebookConflict(
       'O caderno continua mudando. Tente novamente.',
+    );
+  }
+
+  Future<void> permanentlyDeleteRecord(
+    Campaign campaign,
+    Notebook baseline,
+    CampaignRecord record,
+  ) {
+    _requireCampaignOwner(campaign);
+    final id = record.id;
+    if (id == null || record.deletedAt == null) {
+      throw const NotebookConflict('Mova o registro para a lixeira primeiro.');
+    }
+    return _updateNotebook(campaign.id, baseline, (latest) {
+      _requireCampaignOwner(campaign);
+      final item = latest._entries
+          .where((entry) => entry['id'] == id)
+          .firstOrNull;
+      if (item == null) return null;
+      if (item['deletedAt'] != record.deletedAt) {
+        throw const NotebookConflict(
+          'O registro saiu da lixeira ou mudou. Confira antes de excluir.',
+        );
+      }
+      return latest._entries.where((entry) => entry['id'] != id).toList();
+    });
+  }
+
+  Future<void> permanentlyDeleteGmNote(Campaign campaign, GmNote note) async {
+    _requireCampaignOwner(campaign);
+    if (!note.isTrashed) throw const GmNoteConflict();
+    await _client.rpc<void>(
+      'rpg_gm_delete',
+      params: {
+        'p_campaign': campaign.id,
+        'p_id': note.id,
+        'p_expected': note.revision,
+      },
+    );
+  }
+
+  Future<({int revision, int shared, int private})> previewReset(
+    Campaign campaign,
+  ) async {
+    _requireCampaignOwner(campaign);
+    final data = await _client.rpc<Map<String, dynamic>>(
+      'rpg_reset_preview',
+      params: {'p_campaign': campaign.id},
+    );
+    return (
+      revision: data['revision'] as int,
+      shared: data['shared'] as int,
+      private: data['private'] as int,
+    );
+  }
+
+  Future<void> resetSharedNotebook(Campaign campaign, int revision) async {
+    _requireCampaignOwner(campaign);
+    await _client.rpc<void>(
+      'rpg_reset_campaign',
+      params: {
+        'p_campaign': campaign.id,
+        'p_expected': revision,
+        'p_private': false,
+      },
     );
   }
 

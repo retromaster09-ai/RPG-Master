@@ -93,6 +93,24 @@ A lista do Mestre mostra as capas nos cartões de notas e páginas,
 com o enquadramento salvo e carregamento pelo Storage privado.
 A próxima etapa do caderno é a interface de exclusão definitiva e reset.
 
+## Versão 0.17.0-dev.28
+
+Em **Suas campanhas**, o botão de visibilidade oculta uma mesa na lista da
+conta neste aparelho. **Campanhas ocultas** permite reexibi-la. Esse ajuste
+local serve também para mesas em que a conta participa como jogadora.
+
+O criador pode excluir registros da lixeira de forma definitiva, no Caderno
+e no Mestre. Em **Acesso e participantes → Resetar conteúdo da campanha**,
+a prévia informa o alcance antes da confirmação pelo nome. O reset limpa o
+caderno compartilhado, crônicas, lixeira e histórico. A mesa, a capa, os
+participantes e o roteiro privado são preservados. O servidor incrementa a
+geração para rejeitar rascunhos antigos. As ações usam as RPCs legadas
+validadas no projeto de teste.
+
+No PC, campanhas e seções ilustradas do caderno usam grades, as abas ficam
+na navegação lateral e os editores têm largura máxima de leitura. O filtro
+**Próxima sessão** continua sendo uma seleção das notas marcadas no roteiro.
+
 ## Situação
 
 - O APK enviado pelo mestre é o RPG Master Set 0.16.2, Flutter Android

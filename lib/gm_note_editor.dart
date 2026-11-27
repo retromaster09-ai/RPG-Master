@@ -264,6 +264,7 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
     children: [
       SwitchListTile(
         title: const Text('Usar na próxima sessão'),
+        subtitle: const Text('Aparece no filtro Próxima sessão da aba Mestre.'),
         value: _nextSession,
         onChanged: busy
             ? null
@@ -350,7 +351,13 @@ class _GmNoteEditorState extends State<GmNoteEditor> {
           ),
         ),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.symmetric(
+            vertical: 16,
+            horizontal: ((MediaQuery.sizeOf(context).width - 928) / 2).clamp(
+              16.0,
+              double.infinity,
+            ),
+          ),
           children: [
             TextField(
               controller: _title,

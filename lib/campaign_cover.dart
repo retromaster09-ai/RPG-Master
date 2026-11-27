@@ -13,6 +13,9 @@ class CampaignCard extends StatefulWidget {
     required this.isOwner,
     required this.onOpen,
     this.onEditCover,
+    this.onToggleHidden,
+    this.hidden = false,
+    this.maxTitleLines,
   });
 
   final Campaign campaign;
@@ -20,6 +23,9 @@ class CampaignCard extends StatefulWidget {
   final bool isOwner;
   final VoidCallback onOpen;
   final VoidCallback? onEditCover;
+  final VoidCallback? onToggleHidden;
+  final bool hidden;
+  final int? maxTitleLines;
 
   @override
   State<CampaignCard> createState() => _CampaignCardState();
@@ -110,6 +116,10 @@ class _CampaignCardState extends State<CampaignCard> {
                         Expanded(
                           child: Text(
                             widget.campaign.name,
+                            maxLines: widget.maxTitleLines,
+                            overflow: widget.maxTitleLines == null
+                                ? null
+                                : TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
                                   color: const Color(0xFFFFF1DA),
@@ -132,6 +142,26 @@ class _CampaignCardState extends State<CampaignCard> {
               ),
             ),
           ),
+          if (widget.onToggleHidden case final toggle?)
+            Positioned(
+              top: 5,
+              right: widget.onEditCover == null ? 5 : 54,
+              child: IconButton(
+                onPressed: toggle,
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xC81A140F),
+                  foregroundColor: const Color(0xFFFFE2BC),
+                ),
+                tooltip: widget.hidden
+                    ? 'Mostrar campanha'
+                    : 'Ocultar campanha',
+                icon: Icon(
+                  widget.hidden
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+              ),
+            ),
           if (widget.onEditCover case final edit?)
             Positioned(
               top: 5,

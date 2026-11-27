@@ -14,6 +14,7 @@ String _campaignError(Object error) {
     return switch (error.code) {
       '22023' => 'Confira os dados. O convite pode ter expirado.',
       '42501' => 'Somente o mestre pode fazer essa alteração.',
+      '40001' => 'A campanha mudou. Cancele e abra uma nova prévia.',
       '23505' => 'Esse valor já está em uso. Atualize a lista e tente outro.',
       _ => 'Não foi possível concluir. Tente novamente.',
     };
@@ -109,7 +110,7 @@ class _CampaignTextDialogState extends State<_CampaignTextDialog> {
         decoration: InputDecoration(
           labelText: widget.label,
           helperText: widget.help,
-          helperMaxLines: 3,
+          helperMaxLines: 8,
           errorText: _error,
           errorMaxLines: 3,
         ),
@@ -134,11 +135,13 @@ class CampaignAccessScreen extends StatefulWidget {
     required this.campaign,
     required this.repository,
     required this.onBack,
+    this.onReset,
   });
 
   final Campaign campaign;
   final CampaignRepository repository;
   final VoidCallback onBack;
+  final Future<void> Function()? onReset;
 
   @override
   State<CampaignAccessScreen> createState() => _CampaignAccessScreenState();
@@ -223,6 +226,40 @@ class _CampaignAccessScreenState extends State<CampaignAccessScreen> {
         ),
       );
     } on Exception catch (error) {
+      if (mounted) _showMessage(_campaignError(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resetContent() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final preview = await widget.repository.previewReset(widget.campaign);
+      if (!mounted) return;
+      final name = widget.campaign.name;
+      final confirmed = await askCampaignText(
+        context,
+        title: 'Resetar conteúdo da campanha',
+        label: 'Digite o nome exato da campanha',
+        action: 'Resetar caderno',
+        help:
+            '“$name” · ${preview.shared} registros do caderno e das crônicas, '
+            'incluindo a lixeira, e o histórico serão apagados. '
+            'Os participantes, a capa e o roteiro privado serão preservados.',
+        validate: (value) =>
+            value == name ? null : 'Digite “$name” para confirmar.',
+        submit: (_) => widget.repository.resetSharedNotebook(
+          widget.campaign,
+          preview.revision,
+        ),
+      );
+      if (confirmed != null && mounted) {
+        await widget.onReset?.call();
+        if (mounted) _showMessage('Caderno da campanha reiniciado.');
+      }
+    } catch (error) {
       if (mounted) _showMessage(_campaignError(error));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -316,6 +353,15 @@ class _CampaignAccessScreenState extends State<CampaignAccessScreen> {
                   title: Text(member.name),
                   subtitle: Text(member.isOwner ? 'Mestre' : 'Jogador'),
                 ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _resetContent,
+                  icon: const Icon(Icons.restart_alt),
+                  label: const Text('Resetar conteúdo da campanha'),
+                ),
+              ),
             ],
           );
         },
